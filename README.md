@@ -39,6 +39,8 @@ FastAPI
              |
              v
       Response normalization
+      ```
+      
 
       The external API logic is separated from the application endpoints to keep responsibilities isolated.
 

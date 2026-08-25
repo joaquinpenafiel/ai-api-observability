@@ -39,10 +39,9 @@ FastAPI
              |
              v
       Response normalization
-      ```
-      
+```
 
-      The external API logic is separated from the application endpoints to keep responsibilities isolated.
+The external API logic is separated from the application endpoints to keep responsibilities isolated.
 
 ```text
 src/
@@ -50,7 +49,6 @@ src/
 └── services/
     └── github_client.py
 ```
-
 ## API endpoints
 
 ### Health check

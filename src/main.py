@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
-
+from src.services.github_client import fetch_repository
 
 app = FastAPI(
     title="API Integration Lab",
@@ -35,3 +35,8 @@ def process_data(payload: ProcessRequest):
         "character_count": len(normalized_text),
         "processed_at": datetime.now(timezone.utc).isoformat(),
     }
+
+
+@app.get("/github/{owner}/{repo}")
+async def github_repository(owner: str, repo: str):
+    return await fetch_repository(owner, repo)

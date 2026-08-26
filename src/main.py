@@ -1,6 +1,7 @@
 import logging
 import time
 from datetime import datetime, timezone
+from uuid import uuid4
 
 from fastapi import FastAPI, Request
 from pydantic import BaseModel, Field
@@ -8,7 +9,7 @@ from pydantic import BaseModel, Field
 from src.config import settings
 from src.logging_config import configure_logging
 from src.services.github_client import fetch_repository
-
+from src.request_context import request_id_context
 
 configure_logging()
 
@@ -32,38 +33,53 @@ class ProcessRequest(BaseModel):
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
+    request_id = (
+        request.headers.get("X-Request-ID")
+        or str(uuid4())
+    )
+
+    context_token = request_id_context.set(request_id)
     start_time = time.perf_counter()
 
     try:
-        response = await call_next(request)
+        try:
+            response = await call_next(request)
 
-    except Exception:
-        duration_ms = (time.perf_counter() - start_time) * 1000
+        except Exception:
+            duration_ms = (
+                time.perf_counter() - start_time
+            ) * 1000
 
-        logger.exception(
-            "Unhandled request error",
+            logger.exception(
+                "Unhandled request error",
+                extra={
+                    "request_method": request.method,
+                    "request_path": request.url.path,
+                    "duration_ms": round(duration_ms, 2),
+                },
+            )
+            raise
+
+        duration_ms = (
+            time.perf_counter() - start_time
+        ) * 1000
+
+        response.headers["X-Request-ID"] = request_id
+
+        logger.info(
+            "Request completed",
             extra={
                 "request_method": request.method,
                 "request_path": request.url.path,
+                "status_code": response.status_code,
                 "duration_ms": round(duration_ms, 2),
             },
         )
 
-        raise
+        return response
 
-    duration_ms = (time.perf_counter() - start_time) * 1000
-
-    logger.info(
-        "Request completed",
-        extra={
-            "request_method": request.method,
-            "request_path": request.url.path,
-            "status_code": response.status_code,
-            "duration_ms": round(duration_ms, 2),
-        },
-    )
-
-    return response
+    finally:
+        request_id_context.reset(context_token)
 
 
 @app.get("/health")

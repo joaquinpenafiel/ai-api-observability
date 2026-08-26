@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 
 from src.config import settings
 
+from src.request_context import request_id_context
 
 class JsonFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
@@ -14,6 +15,11 @@ class JsonFormatter(logging.Formatter):
             "message": record.getMessage(),
         }
 
+        request_id = request_id_context.get()
+
+        if request_id:
+            log_record["request_id"] = request_id
+
         optional_fields = (
             "request_method",
             "request_path",
@@ -21,6 +27,9 @@ class JsonFormatter(logging.Formatter):
             "duration_ms",
             "repository",
             "external_status_code",
+            "rate_limit_remaining",
+            "rate_limit_reset",
+            "retry_after",
         )
 
         for field in optional_fields:

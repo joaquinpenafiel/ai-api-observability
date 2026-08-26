@@ -126,6 +126,85 @@ The integration includes handling for:
 - Repository not found (`404`)
 - Unexpected external API errors
 
+## Environment configuration
+
+Application configuration is centralized using `pydantic-settings`.
+
+The project supports both operating-system environment variables and a local `.env` file.
+
+Available configuration:
+
+```text
+APP_NAME
+APP_VERSION
+LOG_LEVEL
+GITHUB_API_BASE
+GITHUB_TIMEOUT_SECONDS
+GITHUB_MAX_RETRIES
+GITHUB_BACKOFF_SECONDS
+GITHUB_TOKEN
+```
+
+A safe configuration template is provided in:
+
+```text
+.env.example
+```
+
+Real `.env` files are ignored by Git and should never be committed.
+
+The GitHub token is optional and is never hardcoded in the application.
+
+## Structured logging
+
+Application logs are emitted as structured JSON.
+
+Logged information can include:
+
+- UTC timestamp
+- log level
+- logger name
+- message
+- HTTP method
+- request path
+- response status code
+- request duration
+- external repository
+- external API status code
+- rate-limit information
+- request correlation ID
+- exception information
+
+This makes application behavior easier to inspect and trace across requests.
+
+## Resilience and request tracing
+
+The GitHub integration includes controlled resilience behavior for transient external failures.
+
+Implemented behavior includes:
+
+- configurable retry limits
+- exponential backoff
+- retries for connection failures
+- retries for timeouts
+- retries for HTTP `5xx` responses
+- no retry for permanent `404` responses
+- GitHub rate-limit detection
+- HTTP `429` propagation
+- `Retry-After` preservation when provided
+- automatic `X-Request-ID` generation
+- preservation of client-provided request IDs
+- correlation IDs across API and external-service logs
+
+A request ID can also be supplied manually:
+
+```bash
+curl -H "X-Request-ID: example-request-123" \
+  http://127.0.0.1:8000/github/fastapi/fastapi
+```
+
+The same identifier is returned in the response and included in related structured logs.
+
 ## Running the project
 
 Install dependencies:
@@ -159,13 +238,21 @@ Current test coverage includes:
 - Health endpoint
 - Data processing endpoint
 - Input validation
-- Successful external API integration behavior
+- Successful external API integration
 - Repository-not-found behavior
+- retry behavior after transient server failures
+- recovery after external API failures
+- maximum retry enforcement
+- prevention of unnecessary retries for `404`
+- HTTP `429` rate-limit handling
+- GitHub `403` rate-limit detection
+- generated request IDs
+- preservation of client-provided request IDs
 
 Current suite:
 
 ```text
-5 passed
+12 passed
 ```
 
 External API behavior is mocked during automated testing so the test suite does not depend on network availability or the GitHub API being reachable.
@@ -193,12 +280,21 @@ api-integration-lab/
 ├── .github/
 │   └── workflows/
 │       └── tests.yml
+│
 ├── src/
 │   ├── main.py
+│   ├── config.py
+│   ├── logging_config.py
+│   ├── request_context.py
 │   └── services/
 │       └── github_client.py
+│
 ├── tests/
-│   └── test_api.py
+│   ├── test_api.py
+│   ├── test_request_id.py
+│   └── test_resilience.py
+│
+├── .env.example
 ├── .gitignore
 ├── README.md
 └── requirements.txt
@@ -209,7 +305,8 @@ api-integration-lab/
 - Python
 - FastAPI
 - Pydantic
-- httpx
-- pytest
+- Pydantic-settings
+- Httpx
+- Pytest
 - GitHub REST API
 - GitHub Actions

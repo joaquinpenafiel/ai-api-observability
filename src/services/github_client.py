@@ -1,10 +1,10 @@
+import asyncio
 import logging
 
 import httpx
 from fastapi import HTTPException
 
 from src.config import settings
-
 
 logger = logging.getLogger("api.github")
 
@@ -21,37 +21,159 @@ async def fetch_repository(owner: str, repo: str):
     if settings.github_token:
         headers["Authorization"] = f"Bearer {settings.github_token}"
 
-    try:
-        async with httpx.AsyncClient(
-            timeout=settings.github_timeout_seconds
-        ) as client:
-            response = await client.get(url, headers=headers)
+    max_attempts = settings.github_max_retries + 1
 
-    except httpx.TimeoutException:
-        logger.warning(
-            "GitHub API request timed out",
-            extra={
-                "repository": repository,
-            },
-        )
+    async with httpx.AsyncClient(
+        timeout=settings.github_timeout_seconds
+    ) as client:
 
-        raise HTTPException(
-            status_code=504,
-            detail="GitHub API request timed out.",
-        )
+        for attempt in range(1, max_attempts + 1):
 
-    except httpx.RequestError:
-        logger.error(
-            "Unable to connect to GitHub API",
-            extra={
-                "repository": repository,
-            },
-        )
+            try:
+                response = await client.get(url, headers=headers)
 
-        raise HTTPException(
-            status_code=502,
-            detail="Unable to connect to GitHub API.",
-        )
+            except httpx.TimeoutException:
+                if attempt < max_attempts:
+                    delay = settings.github_backoff_seconds * (
+                        2 ** (attempt - 1)
+                    )
+
+                    logger.warning(
+                        (
+                            "GitHub API request timed out; "
+                            "retrying in %.2f seconds "
+                            "(attempt %s/%s)"
+                        ),
+                        delay,
+                        attempt,
+                        max_attempts,
+                    )
+
+                    await asyncio.sleep(delay)
+                    continue
+
+                logger.warning(
+                    "GitHub API request timed out after all attempts",
+                    extra={
+                        "repository": repository,
+                    },
+                )
+
+                raise HTTPException(
+                    status_code=504,
+                    detail="GitHub API request timed out.",
+                )
+
+            except httpx.RequestError:
+                if attempt < max_attempts:
+                    delay = settings.github_backoff_seconds * (
+                        2 ** (attempt - 1)
+                    )
+
+                    logger.warning(
+                        (
+                            "Unable to connect to GitHub API; "
+                            "retrying in %.2f seconds "
+                            "(attempt %s/%s)"
+                        ),
+                        delay,
+                        attempt,
+                        max_attempts,
+                    )
+
+                    await asyncio.sleep(delay)
+                    continue
+
+                logger.error(
+                    "Unable to connect to GitHub API after all attempts",
+                    extra={
+                        "repository": repository,
+                    },
+                )
+
+                raise HTTPException(
+                    status_code=502,
+                    detail="Unable to connect to GitHub API.",
+                )
+
+            rate_limit_remaining = response.headers.get(
+                "x-ratelimit-remaining"
+            )
+
+            is_rate_limited = (
+                response.status_code == 429
+                or (
+                    response.status_code == 403
+                    and rate_limit_remaining == "0"
+                )
+            )
+
+            if is_rate_limited:
+                retry_after = response.headers.get("retry-after")
+                rate_limit_reset = response.headers.get(
+                    "x-ratelimit-reset"
+                )
+
+                logger.warning(
+                    "GitHub API rate limit exceeded",
+                    extra={
+                        "repository": repository,
+                        "external_status_code": response.status_code,
+                        "rate_limit_remaining": rate_limit_remaining,
+                        "rate_limit_reset": rate_limit_reset,
+                        "retry_after": retry_after,
+                    },
+                )
+
+                response_headers = {}
+
+                if retry_after:
+                    response_headers["Retry-After"] = retry_after
+
+                raise HTTPException(
+                    status_code=429,
+                    detail="GitHub API rate limit exceeded.",
+                    headers=response_headers or None,
+                )
+
+            if response.status_code >= 500:
+                if attempt < max_attempts:
+                    delay = settings.github_backoff_seconds * (
+                        2 ** (attempt - 1)
+                    )
+
+                    logger.warning(
+                        (
+                            "GitHub API returned %s; "
+                            "retrying in %.2f seconds "
+                            "(attempt %s/%s)"
+                        ),
+                        response.status_code,
+                        delay,
+                        attempt,
+                        max_attempts,
+                    )
+
+                    await asyncio.sleep(delay)
+                    continue
+
+                logger.error(
+                    "GitHub API server error after all attempts",
+                    extra={
+                        "repository": repository,
+                        "external_status_code": response.status_code,
+                    },
+                )
+
+                raise HTTPException(
+                    status_code=502,
+                    detail=(
+                        "GitHub API returned status "
+                        f"{response.status_code}."
+                    ),
+                )
+
+            break
 
     if response.status_code == 404:
         logger.info(

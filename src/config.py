@@ -9,6 +9,8 @@ class Settings(BaseSettings):
 
     github_api_base: str = "https://api.github.com"
     github_timeout_seconds: float = 5.0
+    github_max_retries: int = 2
+    github_backoff_seconds: float = 0.5
     github_token: str | None = None
 
     model_config = SettingsConfigDict(

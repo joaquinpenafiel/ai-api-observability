@@ -1,9 +1,12 @@
 import logging
 import time
+from pathlib import Path
 from datetime import datetime, timezone
 from uuid import uuid4
 
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from src.config import settings
@@ -24,6 +27,8 @@ from src.services.github_client import fetch_repository
 
 from src.services.webhook_security import verify_webhook_signature
 
+STATIC_DIR = Path(__file__).resolve().parent / "static"
+
 configure_logging()
 initialize_database()
 
@@ -39,6 +44,11 @@ app = FastAPI(
     version=settings.app_version,
 )
 
+app.mount(
+    "/static",
+    StaticFiles(directory=STATIC_DIR),
+    name="static",
+)
 
 class ProcessRequest(BaseModel):
     text: str = Field(min_length=1, max_length=500)
@@ -114,6 +124,15 @@ def health_check():
         "status": "ok",
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
+
+@app.get(
+    "/dashboard",
+    include_in_schema=False,
+)
+def dashboard():
+    return FileResponse(
+        STATIC_DIR / "dashboard.html"
+    )
 
 @app.get("/stats")
 def ai_stats():

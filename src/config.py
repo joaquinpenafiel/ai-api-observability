@@ -33,6 +33,8 @@ class Settings(BaseSettings):
 
     webhook_secret: str | None = None
 
+    database_path: str = "data/api_metrics.db"
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

@@ -133,10 +133,35 @@ async def github_repository(owner: str, repo: str):
 
 @app.post("/ai/analyze")
 async def ai_analyze(payload: AIAnalyzeRequest):
-    return await analyze_text(
-        text=payload.text,
-        instruction=payload.instruction,
+    started_at = start_ai_timer()
+
+    try:
+        result = await analyze_text(
+            text=payload.text,
+            instruction=payload.instruction,
+        )
+
+    except HTTPException as exc:
+        record_ai_failure(
+            started_at=started_at,
+            provider="anthropic",
+            model=settings.anthropic_model,
+            status=f"http_{exc.status_code}",
+        )
+
+        raise
+
+    usage = result.get("usage", {})
+
+    record_ai_success(
+        started_at=started_at,
+        provider=result["provider"],
+        model=result["model"],
+        input_tokens=usage.get("input_tokens"),
+        output_tokens=usage.get("output_tokens"),
     )
+
+    return result
 
 
 @app.post("/ai/gemini/analyze")

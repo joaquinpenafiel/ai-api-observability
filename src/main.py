@@ -7,7 +7,10 @@ from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from src.config import settings
-from src.database import initialize_database
+from src.database import (
+    fetch_ai_stats,
+    initialize_database,
+)
 from src.logging_config import configure_logging
 from src.request_context import request_id_context
 from src.services.ai_client import analyze_text
@@ -112,6 +115,9 @@ def health_check():
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
 
+@app.get("/stats")
+def ai_stats():
+    return fetch_ai_stats()
 
 @app.post("/process")
 def process_data(payload: ProcessRequest):

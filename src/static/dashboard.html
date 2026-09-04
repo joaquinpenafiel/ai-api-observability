@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>AI API Metrics Dashboard</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family:
+                Inter,
+                system-ui,
+                -apple-system,
+                BlinkMacSystemFont,
+                "Segoe UI",
+                sans-serif;
+            background: #f5f7fb;
+            color: #172033;
+        }
+
+        .container {
+            width: min(1120px, 92%);
+            margin: 0 auto;
+            padding: 48px 0;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 20px;
+            margin-bottom: 32px;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 2rem;
+        }
+
+        .subtitle {
+            margin-top: 8px;
+            color: #667085;
+        }
+
+        button {
+            border: 0;
+            border-radius: 8px;
+            padding: 10px 18px;
+            cursor: pointer;
+            font-size: 0.95rem;
+            background: #172033;
+            color: white;
+        }
+
+        button:hover {
+            opacity: 0.9;
+        }
+
+        .cards {
+            display: grid;
+            grid-template-columns:
+                repeat(auto-fit, minmax(180px, 1fr));
+            gap: 16px;
+            margin-bottom: 32px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow:
+                0 4px 14px rgba(16, 24, 40, 0.06);
+        }
+
+        .card-label {
+            color: #667085;
+            font-size: 0.9rem;
+            margin-bottom: 10px;
+        }
+
+        .card-value {
+            font-size: 1.8rem;
+            font-weight: 700;
+        }
+
+        .panel {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow:
+                0 4px 14px rgba(16, 24, 40, 0.06);
+        }
+
+        .panel h2 {
+            margin-top: 0;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th,
+        td {
+            padding: 14px 12px;
+            text-align: left;
+            border-bottom: 1px solid #eaecf0;
+        }
+
+        th {
+            color: #667085;
+            font-size: 0.85rem;
+        }
+
+        .status {
+            margin-top: 18px;
+            color: #667085;
+            font-size: 0.9rem;
+        }
+
+        .error {
+            color: #b42318;
+        }
+
+        @media (max-width: 700px) {
+            header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .panel {
+                overflow-x: auto;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <main class="container">
+        <header>
+            <div>
+                <h1>AI API Metrics</h1>
+
+                <div class="subtitle">
+                    Runtime observability for Anthropic and Gemini API calls
+                </div>
+            </div>
+
+            <button id="refresh-button">
+                Refresh
+            </button>
+        </header>
+
+        <section class="cards">
+            <article class="card">
+                <div class="card-label">
+                    Total requests
+                </div>
+
+                <div
+                    class="card-value"
+                    id="total-requests"
+                >
+                    —
+                </div>
+            </article>
+
+            <article class="card">
+                <div class="card-label">
+                    Successful
+                </div>
+
+                <div
+                    class="card-value"
+                    id="successful-requests"
+                >
+                    —
+                </div>
+            </article>
+
+            <article class="card">
+                <div class="card-label">
+                    Failed
+                </div>
+
+                <div
+                    class="card-value"
+                    id="failed-requests"
+                >
+                    —
+                </div>
+            </article>
+
+            <article class="card">
+                <div class="card-label">
+                    Total tokens
+                </div>
+
+                <div
+                    class="card-value"
+                    id="total-tokens"
+                >
+                    —
+                </div>
+            </article>
+
+            <article class="card">
+                <div class="card-label">
+                    Avg. latency
+                </div>
+
+                <div
+                    class="card-value"
+                    id="average-latency"
+                >
+                    —
+                </div>
+            </article>
+        </section>
+
+        <section class="panel">
+            <h2>Providers</h2>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Provider</th>
+                        <th>Requests</th>
+                        <th>Successful</th>
+                        <th>Failed</th>
+                        <th>Tokens</th>
+                        <th>Avg. latency</th>
+                    </tr>
+                </thead>
+
+                <tbody id="provider-table-body">
+                </tbody>
+            </table>
+
+            <div
+                id="dashboard-status"
+                class="status"
+            >
+                Waiting for metrics...
+            </div>
+        </section>
+    </main>
+
+    <script src="/static/dashboard.js"></script>
+</body>
+</html>

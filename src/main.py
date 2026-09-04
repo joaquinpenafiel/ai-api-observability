@@ -10,6 +10,7 @@ from src.config import settings
 from src.logging_config import configure_logging
 from src.request_context import request_id_context
 from src.services.ai_client import analyze_text
+from src.services.gemini_client import analyze_text_with_gemini
 from src.services.github_client import fetch_repository
 
 configure_logging()
@@ -124,6 +125,14 @@ async def github_repository(owner: str, repo: str):
 @app.post("/ai/analyze")
 async def ai_analyze(payload: AIAnalyzeRequest):
     return await analyze_text(
+        text=payload.text,
+        instruction=payload.instruction,
+    )
+
+
+@app.post("/ai/gemini/analyze")
+async def gemini_analyze(payload: AIAnalyzeRequest):
+    return await analyze_text_with_gemini(
         text=payload.text,
         instruction=payload.instruction,
     )

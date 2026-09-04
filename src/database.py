@@ -152,3 +152,116 @@ def fetch_ai_requests(
         dict(row)
         for row in rows
     ]
+
+def fetch_ai_stats(
+    *,
+    database_path: str | Path | None = None,
+) -> dict:
+    with closing(
+        connect_database(database_path)
+    ) as connection:
+        summary = connection.execute(
+            """
+            SELECT
+                COUNT(*) AS total_requests,
+                COALESCE(
+                    SUM(
+                        CASE
+                            WHEN status = 'success'
+                            THEN 1
+                            ELSE 0
+                        END
+                    ),
+                    0
+                ) AS successful_requests,
+                COALESCE(
+                    SUM(
+                        CASE
+                            WHEN status != 'success'
+                            THEN 1
+                            ELSE 0
+                        END
+                    ),
+                    0
+                ) AS failed_requests,
+                COALESCE(
+                    SUM(input_tokens),
+                    0
+                ) AS total_input_tokens,
+                COALESCE(
+                    SUM(output_tokens),
+                    0
+                ) AS total_output_tokens,
+                COALESCE(
+                    SUM(total_tokens),
+                    0
+                ) AS total_tokens,
+                COALESCE(
+                    AVG(latency_ms),
+                    0
+                ) AS average_latency_ms
+            FROM ai_request_metrics
+            """
+        ).fetchone()
+
+        provider_rows = connection.execute(
+            """
+            SELECT
+                provider,
+                COUNT(*) AS requests,
+                COALESCE(
+                    SUM(
+                        CASE
+                            WHEN status = 'success'
+                            THEN 1
+                            ELSE 0
+                        END
+                    ),
+                    0
+                ) AS successful_requests,
+                COALESCE(
+                    SUM(
+                        CASE
+                            WHEN status != 'success'
+                            THEN 1
+                            ELSE 0
+                        END
+                    ),
+                    0
+                ) AS failed_requests,
+                COALESCE(
+                    SUM(total_tokens),
+                    0
+                ) AS total_tokens,
+                COALESCE(
+                    AVG(latency_ms),
+                    0
+                ) AS average_latency_ms
+            FROM ai_request_metrics
+            GROUP BY provider
+            ORDER BY requests DESC, provider ASC
+            """
+        ).fetchall()
+
+    stats = dict(summary)
+
+    stats["average_latency_ms"] = round(
+        stats["average_latency_ms"],
+        2,
+    )
+
+    stats["providers"] = []
+
+    for row in provider_rows:
+        provider_stats = dict(row)
+
+        provider_stats["average_latency_ms"] = round(
+            provider_stats["average_latency_ms"],
+            2,
+        )
+
+        stats["providers"].append(
+            provider_stats
+        )
+
+    return stats

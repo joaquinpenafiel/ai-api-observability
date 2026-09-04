@@ -3,6 +3,7 @@ from unittest.mock import AsyncMock
 from src.database import (
     fetch_ai_requests,
     initialize_database,
+    record_ai_request,
 )
 
 from fastapi import HTTPException
@@ -288,3 +289,91 @@ def test_gemini_failure_records_metrics(
         == "failed-metrics-123"
     )
     assert rows[0]["latency_ms"] >= 0
+
+def test_stats_endpoint_aggregates_ai_metrics(
+    monkeypatch,
+    tmp_path,
+):
+    database_path = tmp_path / "stats_metrics.db"
+
+    monkeypatch.setattr(
+        main_module.settings,
+        "database_path",
+        str(database_path),
+    )
+
+    initialize_database(database_path)
+
+    record_ai_request(
+        provider="gemini",
+        model="gemini-3.1-flash-lite",
+        input_tokens=20,
+        output_tokens=10,
+        total_tokens=30,
+        latency_ms=100.0,
+        status="success",
+        request_id="stats-1",
+        database_path=database_path,
+    )
+
+    record_ai_request(
+        provider="gemini",
+        model="gemini-3.1-flash-lite",
+        input_tokens=30,
+        output_tokens=20,
+        total_tokens=50,
+        latency_ms=200.0,
+        status="http_429",
+        request_id="stats-2",
+        database_path=database_path,
+    )
+
+    record_ai_request(
+        provider="anthropic",
+        model="claude-sonnet-4-6",
+        input_tokens=40,
+        output_tokens=30,
+        total_tokens=70,
+        latency_ms=300.0,
+        status="success",
+        request_id="stats-3",
+        database_path=database_path,
+    )
+
+    response = client.get("/stats")
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["total_requests"] == 3
+    assert data["successful_requests"] == 2
+    assert data["failed_requests"] == 1
+
+    assert data["total_input_tokens"] == 90
+    assert data["total_output_tokens"] == 60
+    assert data["total_tokens"] == 150
+
+    assert data["average_latency_ms"] == 200.0
+
+    assert len(data["providers"]) == 2
+
+    providers = {
+        item["provider"]: item
+        for item in data["providers"]
+    }
+
+    assert providers["gemini"]["requests"] == 2
+    assert providers["gemini"]["successful_requests"] == 1
+    assert providers["gemini"]["failed_requests"] == 1
+    assert providers["gemini"]["total_tokens"] == 80
+    assert providers["gemini"]["average_latency_ms"] == 150.0
+
+    assert providers["anthropic"]["requests"] == 1
+    assert providers["anthropic"]["successful_requests"] == 1
+    assert providers["anthropic"]["failed_requests"] == 0
+    assert providers["anthropic"]["total_tokens"] == 70
+    assert (
+        providers["anthropic"]["average_latency_ms"]
+        == 300.0
+    )

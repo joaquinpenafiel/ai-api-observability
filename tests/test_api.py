@@ -167,3 +167,67 @@ def test_gemini_endpoint_records_metrics(
     assert rows[0]["status"] == "success"
     assert rows[0]["request_id"] == "metrics-test-123"
     assert rows[0]["latency_ms"] >= 0
+
+def test_anthropic_endpoint_records_metrics(
+    monkeypatch,
+    tmp_path,
+):
+    database_path = tmp_path / "anthropic_metrics.db"
+
+    monkeypatch.setattr(
+        main_module.settings,
+        "database_path",
+        str(database_path),
+    )
+
+    initialize_database(database_path)
+
+    mocked_result = {
+        "provider": "anthropic",
+        "model": "claude-sonnet-4-6",
+        "output": "Test Anthropic result.",
+        "usage": {
+            "input_tokens": 20,
+            "output_tokens": 8,
+        },
+    }
+
+    mocked_analyze = AsyncMock(
+        return_value=mocked_result,
+    )
+
+    monkeypatch.setattr(
+        main_module,
+        "analyze_text",
+        mocked_analyze,
+    )
+
+    response = client.post(
+        "/ai/analyze",
+        headers={
+            "X-Request-ID": "anthropic-metrics-123",
+        },
+        json={
+            "text": "Example input text.",
+            "instruction": "Summarize this text.",
+        },
+    )
+
+    assert response.status_code == 200
+
+    rows = fetch_ai_requests(
+        database_path=database_path,
+    )
+
+    assert len(rows) == 1
+    assert rows[0]["provider"] == "anthropic"
+    assert rows[0]["model"] == "claude-sonnet-4-6"
+    assert rows[0]["input_tokens"] == 20
+    assert rows[0]["output_tokens"] == 8
+    assert rows[0]["total_tokens"] == 28
+    assert rows[0]["status"] == "success"
+    assert (
+        rows[0]["request_id"]
+        == "anthropic-metrics-123"
+    )
+    assert rows[0]["latency_ms"] >= 0

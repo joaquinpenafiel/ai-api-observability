@@ -7,6 +7,7 @@ from fastapi import FastAPI, Request
 from pydantic import BaseModel, Field
 
 from src.config import settings
+from src.database import initialize_database
 from src.logging_config import configure_logging
 from src.request_context import request_id_context
 from src.services.ai_client import analyze_text
@@ -16,6 +17,7 @@ from src.services.github_client import fetch_repository
 from src.services.webhook_security import verify_webhook_signature
 
 configure_logging()
+initialize_database()
 
 logger = logging.getLogger("api")
 

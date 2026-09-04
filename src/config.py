@@ -3,7 +3,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     app_name: str = "API Integration Lab"
-    app_version: str = "0.4.0"
+    app_version: str = "0.5.0"
 
     log_level: str = "INFO"
 
@@ -30,6 +30,8 @@ class Settings(BaseSettings):
     gemini_max_retries: int = 2
     gemini_backoff_seconds: float = 0.5
     gemini_max_tokens: int = 120
+
+    webhook_secret: str | None = None
 
     model_config = SettingsConfigDict(
         env_file=".env",

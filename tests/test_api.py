@@ -231,3 +231,60 @@ def test_anthropic_endpoint_records_metrics(
         == "anthropic-metrics-123"
     )
     assert rows[0]["latency_ms"] >= 0
+
+def test_gemini_failure_records_metrics(
+    monkeypatch,
+    tmp_path,
+):
+    database_path = tmp_path / "failed_metrics.db"
+
+    monkeypatch.setattr(
+        main_module.settings,
+        "database_path",
+        str(database_path),
+    )
+
+    initialize_database(database_path)
+
+    mocked_analyze = AsyncMock(
+        side_effect=HTTPException(
+            status_code=429,
+            detail="Gemini API rate limit exceeded.",
+        )
+    )
+
+    monkeypatch.setattr(
+        main_module,
+        "analyze_text_with_gemini",
+        mocked_analyze,
+    )
+
+    response = client.post(
+        "/ai/gemini/analyze",
+        headers={
+            "X-Request-ID": "failed-metrics-123",
+        },
+        json={
+            "text": "Example input text.",
+            "instruction": "Summarize this text.",
+        },
+    )
+
+    assert response.status_code == 429
+
+    rows = fetch_ai_requests(
+        database_path=database_path,
+    )
+
+    assert len(rows) == 1
+    assert rows[0]["provider"] == "gemini"
+    assert rows[0]["model"] == main_module.settings.gemini_model
+    assert rows[0]["input_tokens"] == 0
+    assert rows[0]["output_tokens"] == 0
+    assert rows[0]["total_tokens"] == 0
+    assert rows[0]["status"] == "http_429"
+    assert (
+        rows[0]["request_id"]
+        == "failed-metrics-123"
+    )
+    assert rows[0]["latency_ms"] >= 0

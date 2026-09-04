@@ -1,5 +1,10 @@
 from unittest.mock import AsyncMock
 
+from src.database import (
+    fetch_ai_requests,
+    initialize_database,
+)
+
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
@@ -100,3 +105,65 @@ def test_github_repository_not_found(monkeypatch):
     assert response.json() == {
         "detail": "Repository not found."
     }
+
+def test_gemini_endpoint_records_metrics(
+    monkeypatch,
+    tmp_path,
+):
+    database_path = tmp_path / "metrics.db"
+
+    monkeypatch.setattr(
+        main_module.settings,
+        "database_path",
+        str(database_path),
+    )
+
+    initialize_database(database_path)
+
+    mocked_result = {
+        "provider": "gemini",
+        "model": "gemini-3.1-flash-lite",
+        "output": "Test Gemini result.",
+        "usage": {
+            "input_tokens": 25,
+            "output_tokens": 10,
+            "total_tokens": 35,
+        },
+    }
+
+    mocked_analyze = AsyncMock(
+        return_value=mocked_result,
+    )
+
+    monkeypatch.setattr(
+        main_module,
+        "analyze_text_with_gemini",
+        mocked_analyze,
+    )
+
+    response = client.post(
+        "/ai/gemini/analyze",
+        headers={
+            "X-Request-ID": "metrics-test-123",
+        },
+        json={
+            "text": "Example input text.",
+            "instruction": "Summarize this text.",
+        },
+    )
+
+    assert response.status_code == 200
+
+    rows = fetch_ai_requests(
+        database_path=database_path,
+    )
+
+    assert len(rows) == 1
+    assert rows[0]["provider"] == "gemini"
+    assert rows[0]["model"] == "gemini-3.1-flash-lite"
+    assert rows[0]["input_tokens"] == 25
+    assert rows[0]["output_tokens"] == 10
+    assert rows[0]["total_tokens"] == 35
+    assert rows[0]["status"] == "success"
+    assert rows[0]["request_id"] == "metrics-test-123"
+    assert rows[0]["latency_ms"] >= 0

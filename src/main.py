@@ -13,6 +13,8 @@ from src.services.ai_client import analyze_text
 from src.services.gemini_client import analyze_text_with_gemini
 from src.services.github_client import fetch_repository
 
+from src.services.webhook_security import verify_webhook_signature
+
 configure_logging()
 
 logger = logging.getLogger("api")
@@ -136,3 +138,19 @@ async def gemini_analyze(payload: AIAnalyzeRequest):
         text=payload.text,
         instruction=payload.instruction,
     )
+
+
+@app.post("/webhooks/inbound")
+async def inbound_webhook(request: Request):
+    payload = await request.body()
+    signature = request.headers.get("X-Webhook-Signature")
+
+    verify_webhook_signature(
+        payload=payload,
+        signature=signature,
+    )
+
+    return {
+        "status": "accepted",
+        "payload_bytes": len(payload),
+    }

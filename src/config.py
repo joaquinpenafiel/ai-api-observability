@@ -3,7 +3,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     app_name: str = "API Integration Lab"
-    app_version: str = "0.3.0"
+    app_version: str = "0.4.0"
 
     log_level: str = "INFO"
 
@@ -20,6 +20,16 @@ class Settings(BaseSettings):
     anthropic_max_retries: int = 2
     anthropic_backoff_seconds: float = 0.5
     anthropic_max_tokens: int = 300
+
+    gemini_api_base: str = (
+        "https://generativelanguage.googleapis.com"
+    )
+    gemini_api_key: str | None = None
+    gemini_model: str = "gemini-3.1-flash-lite"
+    gemini_timeout_seconds: float = 120.0
+    gemini_max_retries: int = 2
+    gemini_backoff_seconds: float = 0.5
+    gemini_max_tokens: int = 120
 
     model_config = SettingsConfigDict(
         env_file=".env",

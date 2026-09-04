@@ -8,8 +8,9 @@ from pydantic import BaseModel, Field
 
 from src.config import settings
 from src.logging_config import configure_logging
-from src.services.github_client import fetch_repository
 from src.request_context import request_id_context
+from src.services.ai_client import analyze_text
+from src.services.github_client import fetch_repository
 
 configure_logging()
 
@@ -29,6 +30,18 @@ app = FastAPI(
 class ProcessRequest(BaseModel):
     text: str = Field(min_length=1, max_length=500)
     source: str = Field(default="manual")
+
+
+class AIAnalyzeRequest(BaseModel):
+    text: str = Field(min_length=1, max_length=4000)
+    instruction: str = Field(
+        default=(
+            "Summarize the text clearly in three "
+            "concise bullet points."
+        ),
+        min_length=1,
+        max_length=500,
+    )
 
 
 @app.middleware("http")
@@ -106,3 +119,11 @@ def process_data(payload: ProcessRequest):
 @app.get("/github/{owner}/{repo}")
 async def github_repository(owner: str, repo: str):
     return await fetch_repository(owner, repo)
+
+
+@app.post("/ai/analyze")
+async def ai_analyze(payload: AIAnalyzeRequest):
+    return await analyze_text(
+        text=payload.text,
+        instruction=payload.instruction,
+    )

@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from uuid import uuid4
 
 from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from src.config import settings
@@ -11,6 +12,11 @@ from src.database import initialize_database
 from src.logging_config import configure_logging
 from src.request_context import request_id_context
 from src.services.ai_client import analyze_text
+from src.services.ai_metrics import (
+    record_ai_failure,
+    record_ai_success,
+    start_ai_timer,
+)
 from src.services.gemini_client import analyze_text_with_gemini
 from src.services.github_client import fetch_repository
 
@@ -136,10 +142,36 @@ async def ai_analyze(payload: AIAnalyzeRequest):
 
 @app.post("/ai/gemini/analyze")
 async def gemini_analyze(payload: AIAnalyzeRequest):
-    return await analyze_text_with_gemini(
-        text=payload.text,
-        instruction=payload.instruction,
+    started_at = start_ai_timer()
+
+    try:
+        result = await analyze_text_with_gemini(
+            text=payload.text,
+            instruction=payload.instruction,
+        )
+
+    except HTTPException as exc:
+        record_ai_failure(
+            started_at=started_at,
+            provider="gemini",
+            model=settings.gemini_model,
+            status=f"http_{exc.status_code}",
+        )
+
+        raise
+
+    usage = result.get("usage", {})
+
+    record_ai_success(
+        started_at=started_at,
+        provider=result["provider"],
+        model=result["model"],
+        input_tokens=usage.get("input_tokens"),
+        output_tokens=usage.get("output_tokens"),
+        total_tokens=usage.get("total_tokens"),
     )
+
+    return result
 
 
 @app.post("/webhooks/inbound")

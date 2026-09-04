@@ -377,3 +377,24 @@ def test_stats_endpoint_aggregates_ai_metrics(
         providers["anthropic"]["average_latency_ms"]
         == 300.0
     )
+def test_dashboard_page_is_served():
+    response = client.get("/dashboard")
+
+    assert response.status_code == 200
+    assert "text/html" in response.headers["content-type"]
+    assert "AI API Metrics" in response.text
+    assert (
+        'src="/static/dashboard.js"'
+        in response.text
+    )
+
+
+def test_dashboard_javascript_is_served():
+    response = client.get(
+        "/static/dashboard.js"
+    )
+
+    assert response.status_code == 200
+    assert "javascript" in response.headers["content-type"]
+    assert 'fetch("/stats")' in response.text
+    assert "loadDashboard" in response.text

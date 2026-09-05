@@ -38,9 +38,9 @@ logger = logging.getLogger("api")
 app = FastAPI(
     title=settings.app_name,
     description=(
-        "Reproducible laboratory for REST API integration "
-        "and data processing."
-    ),
+    "AI API integration and observability service with "
+    "SQL metrics, signed webhooks, and a JavaScript dashboard."
+),
     version=settings.app_version,
 )
 

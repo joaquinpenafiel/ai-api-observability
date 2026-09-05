@@ -1,13 +1,11 @@
 # AI API Observability
-
 [![API Tests](https://github.com/joaquinpenafiel/ai-api-observability/actions/workflows/tests.yml/badge.svg)](https://github.com/joaquinpenafiel/ai-api-observability/actions/workflows/tests.yml)
 
-A small FastAPI service for integrating external APIs and AI providers while keeping request behavior visible through SQL metrics, structured logging, request tracing, and a lightweight JavaScript dashboard.
+A compact FastAPI service for integrating external APIs and AI providers while keeping request behavior visible through SQL metrics, request tracing, structured logging, and a lightweight JavaScript dashboard.
 
-I built this project as a practical integration service rather than a framework demo. The focus is on the parts that become important once an API leaves a notebook: retries, rate limits, secrets, webhooks, persistence, observability, automated tests, Docker, and deployment.
+The project focuses on practical backend concerns that appear once an API moves beyond a local experiment: retries, rate limits, secrets, webhooks, persistence, observability, automated tests, Docker, and deployment.
 
 ## Live deployment
-
 - **Dashboard:** https://ai-api-observability-production.up.railway.app/dashboard
 - **API documentation:** https://ai-api-observability-production.up.railway.app/docs
 - **Health check:** https://ai-api-observability-production.up.railway.app/health
@@ -15,43 +13,27 @@ I built this project as a practical integration service rather than a framework 
 
 The service is deployed on Railway from the Dockerfile in this repository.
 
-AI provider credentials are **not left enabled for anonymous public usage**.
+AI provider credentials are **not left enabled for anonymous public usage**. Gemini was enabled temporarily in Railway for live validation, real requests were executed through the deployed API, the resulting metrics were stored in SQLite, and the API key was removed afterward.
 
-Gemini was enabled temporarily in Railway for live validation. Real requests were executed through the deployed API, the resulting metrics were stored in SQLite, and the API key was removed afterward.
-
-The metrics remain available because the database is stored on a persistent Railway volume.
+The recorded metrics remain available because the database is stored on a persistent Railway volume.
 
 ### Live validation snapshot
-
-At the end of the validation run, the dashboard contained:
-
 - 3 successful Gemini requests
 - 0 failed requests
 - 387 total tokens
 - real end-to-end latency measurements
 
----
-
 ## What the service does
-
-The application currently includes:
-
 - FastAPI REST endpoints
 - GitHub REST API integration
 - Anthropic Messages API integration
 - Google Gemini API integration
 - configurable provider models and credentials
-- bounded retries
-- exponential backoff
-- timeout handling
-- connection-error handling
-- HTTP 429 rate-limit handling
-- transient HTTP 5xx retries
-- normalized AI responses
-- token-usage extraction
+- bounded retries and exponential backoff
+- timeout, connection-error, rate-limit, and transient 5xx handling
+- normalized AI responses and token-usage extraction
 - HMAC-SHA256 signed webhook verification
-- request correlation IDs
-- structured JSON logging
+- request correlation IDs and structured JSON logging
 - SQLite persistence for AI request metrics
 - SQL aggregation through `/stats`
 - HTML + vanilla JavaScript dashboard
@@ -59,10 +41,7 @@ The application currently includes:
 - GitHub Actions CI
 - Railway deployment with persistent storage
 
----
-
 ## Architecture
-
 ```text
                          Client
                             |
@@ -74,13 +53,13 @@ The application currently includes:
           v                 v                  v
      Core endpoints    API integrations   Signed webhook
           |                 |                  |
-          |          +------+------+           |
-          |          |             |           |
-          v          v             v           v
-      /health     GitHub       Anthropic     HMAC verify
-      /process      API          Gemini          |
-      /stats                       |             v
-      /dashboard                   v         accept/reject
+          v          +------+------+           v
+      /health        |             |       HMAC verify
+      /process    GitHub       AI providers       |
+      /stats        API        Anthropic          v
+      /dashboard                Gemini       accept/reject
+                                  |
+                                  v
                              AI metrics
                                   |
                                   v
@@ -92,12 +71,9 @@ The application currently includes:
                       /stats          JS dashboard
 ```
 
-Provider-specific HTTP clients, metrics persistence, and the FastAPI endpoint layer are kept separate so each part can be tested independently.
-
----
+Provider-specific HTTP clients, metrics persistence, and the FastAPI endpoint layer are separated so each part can be tested independently.
 
 ## API endpoints
-
 | Method | Endpoint | Purpose |
 | --- | --- | --- |
 | GET | `/health` | Service health and UTC timestamp |
@@ -109,54 +85,25 @@ Provider-specific HTTP clients, metrics persistence, and the FastAPI endpoint la
 | POST | `/ai/gemini/analyze` | Gemini text analysis |
 | POST | `/webhooks/inbound` | HMAC-SHA256 signed webhook |
 
-Interactive OpenAPI documentation is available at:
-
-```text
-/docs
-```
-
----
+Interactive OpenAPI documentation is available at `/docs`.
 
 ## AI providers
-
-Both AI integrations use direct HTTP requests through `httpx` instead of provider SDKs.
-
-This keeps authentication, request construction, retries, status handling, and response parsing visible in the code.
+Both AI integrations use direct HTTP requests through `httpx` instead of provider SDKs. This keeps authentication, request construction, retries, status handling, and response parsing visible in the code.
 
 ### Gemini
-
 Endpoint:
-
 ```text
 POST /ai/gemini/analyze
 ```
 
 Default model:
-
 ```text
 gemini-3.1-flash-lite
 ```
 
-The client implements:
-
-- environment-based authentication
-- configurable API base URL
-- configurable model
-- configurable timeout
-- bounded retries
-- exponential backoff
-- connection-error retries
-- HTTP 429 handling
-- transient HTTP 5xx retries
-- authentication-error mapping
-- response validation
-- text extraction
-- token-usage extraction
-- normalized application responses
-- request metric persistence
+The client implements environment-based authentication, configurable model and timeout, bounded retries, exponential backoff, HTTP 429 handling, transient 5xx retries, authentication-error mapping, response validation, text extraction, token-usage extraction, normalized responses, and request metric persistence.
 
 Example request:
-
 ```json
 {
   "text": "External APIs introduce latency and failure modes.",
@@ -165,7 +112,6 @@ Example request:
 ```
 
 Example response shape:
-
 ```json
 {
   "provider": "gemini",
@@ -180,39 +126,17 @@ Example response shape:
 ```
 
 ### Anthropic
-
 Endpoint:
-
 ```text
 POST /ai/analyze
 ```
 
-The Anthropic client follows the same general resilience pattern:
+The Anthropic client follows the same general resilience pattern: environment-based authentication, configurable model and timeout, bounded retries, exponential backoff, HTTP 429 handling, transient 5xx retries, authentication-error mapping, response validation, token extraction, normalized responses, and request metric persistence.
 
-- environment-based authentication
-- configurable model
-- configurable timeout
-- bounded retries
-- exponential backoff
-- connection-error retries
-- HTTP 429 handling
-- transient HTTP 5xx retries
-- authentication-error mapping
-- response validation
-- token extraction
-- normalized responses
-- request metric persistence
-
-Anthropic behavior is covered by automated mocked tests.
-
-I do **not** claim a live Anthropic provider validation for this repository.
-
----
+Anthropic behavior is covered by automated mocked tests. I do **not** claim a live Anthropic provider validation for this repository.
 
 ## Live Gemini validation
-
 The deployed Gemini route was tested end to end through Railway:
-
 ```text
 Browser / OpenAPI docs
         |
@@ -232,7 +156,7 @@ Google Gemini API
 200 response
         |
         v
-Metrics recorded in SQLite
+SQLite metrics
         |
         v
 /stats
@@ -241,58 +165,33 @@ Metrics recorded in SQLite
 JavaScript dashboard
 ```
 
-A temporary `GEMINI_API_KEY` environment variable was added to Railway only for this validation.
+A temporary `GEMINI_API_KEY` environment variable was added to Railway only for this validation. Three real requests completed successfully.
 
-Three real requests completed successfully.
+After validation, the Gemini API key was removed from Railway so the public deployment would not expose anonymous access to provider usage. The recorded metrics remain available because the SQLite database is stored on a persistent Railway volume.
 
-After validation, the Gemini API key was removed from Railway so the public deployment would not expose anonymous access to provider usage.
-
-The recorded metrics remain available because the SQLite database is stored on a persistent Railway volume.
-
-This separates two concerns:
-
-- **CI validation** remains deterministic, mocked, and secret-free.
-- **Live provider validation** is performed separately when needed.
-
----
+CI and live-provider validation are intentionally separated:
+- **CI validation:** mocked, deterministic, and secret-free.
+- **Live validation:** performed separately when end-to-end provider behavior needs to be checked.
 
 ## Observability and SQL persistence
-
-AI calls are recorded in SQLite with fields including:
-
+AI calls are recorded in SQLite with:
 - UTC creation time
-- provider
-- model
-- input tokens
-- output tokens
-- total tokens
+- provider and model
+- input, output, and total tokens
 - latency in milliseconds
 - success or error status
 - request ID
 
-The project uses Python's standard `sqlite3` module with explicit SQL rather than an ORM.
-
-The database schema is created automatically when the application starts.
+The project uses Python's standard `sqlite3` module with explicit SQL rather than an ORM. The database schema is created automatically when the application starts.
 
 ### Metrics endpoint
-
 ```text
 GET /stats
 ```
 
-The endpoint aggregates data using SQL operations including:
-
-- `COUNT`
-- `SUM`
-- `AVG`
-- `CASE`
-- `GROUP BY`
-- `ORDER BY`
-
-It returns both overall statistics and provider-level statistics.
+The endpoint aggregates data using SQL operations including `COUNT`, `SUM`, `AVG`, `CASE`, `GROUP BY`, and `ORDER BY`.
 
 Example response shape:
-
 ```json
 {
   "total_requests": 3,
@@ -315,31 +214,12 @@ Example response shape:
 }
 ```
 
-The snapshot values above illustrate the structure using the live validation totals. Individual input/output token totals are not being presented here as a historical claim.
-
----
+The values above illustrate the response shape using the live validation totals. Individual input/output totals are not presented as a historical claim.
 
 ## Dashboard
-
-The dashboard uses plain:
-
-- HTML
-- CSS
-- JavaScript
-
-There is no frontend framework or frontend build pipeline.
-
-The browser calls:
-
-```text
-GET /stats
-```
-
-and renders:
-
+The dashboard uses plain HTML, CSS, and JavaScript. It fetches `/stats` and renders:
 - total requests
-- successful requests
-- failed requests
+- successful and failed requests
 - total tokens
 - average latency
 - provider-level request counts
@@ -347,106 +227,39 @@ and renders:
 - provider-level token totals
 - provider-level average latency
 
-The **Refresh** button reloads the current metrics from the API.
+The **Refresh** button reloads the current metrics. The frontend is intentionally small so the full path from SQL to API to browser remains easy to inspect.
 
-The frontend is intentionally small so the complete path from SQL to API to browser remains easy to inspect.
-
----
-
-## Request tracing
-
+## Request tracing and logging
 Every incoming HTTP request receives a correlation ID.
 
-If the client sends:
+If the client sends `X-Request-ID`, the application preserves it. Otherwise, a UUID is generated automatically.
 
-```text
-X-Request-ID
-```
+The request ID is returned in response headers, available during request processing, included in structured logs, and stored with AI request metrics.
 
-the application preserves it.
-
-Otherwise, a UUID is generated automatically.
-
-The request ID is:
-
-- available during request processing
-- returned in response headers
-- included in structured logs
-- stored with AI request metrics
-
-This makes it possible to correlate an incoming request with its application logs and persisted AI metrics.
-
----
-
-## Structured logging
-
-The application emits structured JSON logs.
-
-Logged information can include:
-
-- UTC timestamp
-- log level
-- logger name
-- message
-- HTTP method
-- request path
-- response status
-- request duration
-- external API status
-- provider
-- model
-- retry information
-- rate-limit information
-- request ID
-- exceptions
-
-Secrets are not intentionally included in logs.
-
----
+Structured JSON logs can include HTTP method, request path, response status, request duration, provider, model, retry information, rate-limit information, request ID, and exceptions. Secrets are not intentionally included in logs.
 
 ## Signed webhook
-
 Endpoint:
-
 ```text
 POST /webhooks/inbound
 ```
 
-The endpoint validates an HMAC-SHA256 signature supplied through:
-
-```text
-X-Webhook-Signature
-```
+The endpoint validates an HMAC-SHA256 signature supplied through `X-Webhook-Signature`.
 
 Expected format:
-
 ```text
 sha256=<hex-digest>
 ```
 
-The server computes the expected digest from the raw request body and `WEBHOOK_SECRET`.
-
-Signatures are compared using:
-
+The server computes the expected digest from the raw request body and `WEBHOOK_SECRET`, then compares signatures with:
 ```python
 hmac.compare_digest()
 ```
 
-Automated tests cover:
-
-- valid signatures
-- invalid signatures
-- missing signatures
-- missing server-side webhook configuration
-
-The webhook secret is never hardcoded in the repository.
-
----
+Automated tests cover valid signatures, invalid signatures, missing signatures, and missing server-side webhook configuration. The webhook secret is never hardcoded in the repository.
 
 ## External API resilience
-
-External clients use bounded retry behavior rather than assuming third-party services are always available.
-
+External clients use bounded retry behavior:
 ```text
 Request
    |
@@ -456,61 +269,30 @@ External API
    +-- success --------------------> response
    |
    +-- timeout --------+
-   |                   |
-   +-- connection -----+--> retry
-   |                   |      |
-   +-- HTTP 5xx -------+      v
-   |                    exponential backoff
+   +-- connection -----+--> retry --> exponential backoff
+   +-- HTTP 5xx -------+
    |
    +-- HTTP 429 -------------------> controlled rate-limit response
    |
    +-- permanent error ------------> mapped application error
 ```
 
-Retries are limited.
-
-The clients do not retry indefinitely.
-
----
+Retries are limited; the clients do not retry indefinitely.
 
 ## GitHub API integration
-
 Endpoint:
-
 ```text
 GET /github/{owner}/{repo}
 ```
 
-The application requests repository information from the GitHub REST API and returns a normalized response.
+The application requests repository information from the GitHub REST API and returns a normalized response with repository name, description, primary language, stars, forks, open issues, and repository URL.
 
-Returned information includes:
-
-- repository name
-- description
-- primary language
-- stars
-- forks
-- open issues
-- repository URL
-
-The GitHub client also implements:
-
-- timeout handling
-- bounded retries
-- exponential backoff
-- transient 5xx retries
-- 404 handling without unnecessary retries
-- GitHub rate-limit handling
-- structured external-service logging
-
----
+The GitHub client also implements timeout handling, bounded retries, exponential backoff, transient 5xx retries, 404 handling without unnecessary retries, rate-limit handling, and structured external-service logging.
 
 ## Configuration and secrets
+Configuration is centralized with `pydantic-settings`.
 
-Configuration is centralized using `pydantic-settings`.
-
-Main environment variables include:
-
+Main environment variables:
 ```text
 APP_NAME
 APP_VERSION
@@ -538,82 +320,45 @@ WEBHOOK_SECRET
 DATABASE_PATH
 ```
 
-`.env.example` contains safe placeholders.
-
-Real secrets are not committed.
-
-The repository excludes:
-
-- local `.env` files
-- API keys
-- webhook secrets
-- SQLite database files
-- Python cache files
-- virtual environments
-
----
+`.env.example` contains safe placeholders. Real secrets are not committed.
 
 ## Running locally
-
 Clone the repository:
-
 ```bash
 git clone https://github.com/joaquinpenafiel/ai-api-observability.git
 cd ai-api-observability
 ```
 
 Install dependencies:
-
 ```bash
 python -m pip install -r requirements.txt
 ```
 
 Start the API:
-
 ```bash
 python -m uvicorn src.main:app --host 0.0.0.0 --port 8000
 ```
 
 Open:
-
 ```text
 http://127.0.0.1:8000/docs
-```
-
-and:
-
-```text
 http://127.0.0.1:8000/dashboard
 ```
 
 Provider credentials are only required when the corresponding provider endpoint is called.
 
----
-
 ## Docker
-
-The project includes a Dockerfile based on:
-
-```text
-python:3.12-slim
-```
-
 Build the image:
-
 ```bash
 docker build -t ai-api-observability .
 ```
 
 Run it:
-
 ```bash
-docker run --rm \
-  -p 8000:8000 \
-  ai-api-observability
+docker run --rm -p 8000:8000 ai-api-observability
 ```
 
 Run with a local environment file:
-
 ```bash
 docker run --rm \
   -p 8000:8000 \
@@ -623,112 +368,44 @@ docker run --rm \
 
 The container supports a platform-provided `PORT` variable and falls back to port `8000` locally.
 
----
-
 ## Railway deployment
-
-The service is deployed on Railway directly from the repository Dockerfile.
-
-The deployment currently uses:
-
+The service is deployed on Railway from the repository Dockerfile with:
 - public HTTPS domain
 - `/health` deployment healthcheck
-- persistent storage volume
-- volume mount at `/app/data`
+- persistent volume mounted at `/app/data`
 - environment-based configuration
 - dynamic platform port support
 
 The SQLite database path defaults to:
-
 ```text
 data/api_metrics.db
 ```
 
-Inside the deployed container, the application runs from:
-
-```text
-/app
-```
-
-so the database resolves to:
-
+Inside the deployed container the application runs from `/app`, so the database resolves to:
 ```text
 /app/data/api_metrics.db
 ```
 
 Because the persistent Railway volume is mounted at `/app/data`, recorded metrics survive container redeployments.
 
----
-
-## Automated tests
-
+## Automated tests and CI
 The project uses `pytest`.
 
 Run locally:
-
 ```bash
 python -m pytest -q
 ```
 
 Current CI result:
-
 ```text
 31 passed
 ```
 
-The suite covers behavior including:
+The suite covers API behavior, provider clients, retries, rate limits, request IDs, signed webhooks, SQLite persistence, AI success/failure metrics, SQL aggregation, `/stats`, and dashboard/static-file serving.
 
-- health endpoint
-- text processing
-- request validation
-- GitHub API integration
-- GitHub 404 handling
-- retry recovery
-- retry limits
-- rate-limit handling
-- request ID generation
-- request ID preservation
-- Anthropic response parsing
-- Anthropic missing-key handling
-- Anthropic rate-limit handling
-- Gemini response parsing
-- Gemini missing-key handling
-- Gemini rate-limit handling
-- signed webhook verification
-- invalid webhook rejection
-- missing webhook configuration
-- SQLite schema initialization
-- AI metric persistence
-- Gemini endpoint metric persistence
-- Anthropic endpoint metric persistence
-- failed AI request metric persistence
-- SQL statistics aggregation
-- `/stats`
-- dashboard HTML serving
-- dashboard JavaScript serving
+External APIs are mocked during CI, keeping tests deterministic and free of real provider credentials.
 
-External APIs are mocked during CI.
-
-This keeps automated tests:
-
-- deterministic
-- independent of provider uptime
-- independent of paid API usage
-- free of real provider credentials
-
----
-
-## Continuous Integration
-
-GitHub Actions runs on:
-
-```text
-push -> main
-pull request -> main
-```
-
-Current workflow:
-
+GitHub Actions runs on pushes and pull requests to `main`:
 ```text
 Checkout repository
         |
@@ -751,17 +428,9 @@ Build Docker image
 CI success
 ```
 
-The Docker image build is part of the workflow.
-
-A green CI run therefore verifies both:
-
-- application tests
-- container construction
-
----
+A green workflow checks both the test suite and container construction.
 
 ## Project structure
-
 ```text
 .
 ├── .github/
@@ -789,82 +458,43 @@ A green CI run therefore verifies both:
 └── README.md
 ```
 
----
-
 ## Design choices
-
 ### Direct HTTP instead of provider SDKs
-
-Anthropic and Gemini are integrated through `httpx`.
-
-This keeps authentication, payload construction, status handling, retry behavior, and response parsing visible in the repository.
+Anthropic and Gemini are integrated through `httpx` so authentication, payload construction, status handling, retry behavior, and response parsing remain visible.
 
 ### SQLite instead of a larger database stack
-
-The current service needs a small operational metrics store.
-
-SQLite keeps:
-
-- SQL explicit
-- dependencies small
-- deployment compact
-- persistence easy to inspect
+The service only needs a small operational metrics store. SQLite keeps the SQL explicit, dependencies small, and deployment compact.
 
 ### Vanilla JavaScript instead of a frontend framework
-
-The dashboard exists to expose backend behavior.
-
-Adding React or another frontend framework would introduce a second build system without solving a problem this project currently has.
+The dashboard exists to expose backend behavior. A frontend framework would add another build system without solving a problem this project currently has.
 
 ### Mocked CI and separate live validation
-
-Automated tests remain deterministic and secret-free.
-
-Real provider calls are performed separately when end-to-end validation is needed.
-
----
+Automated tests remain deterministic and secret-free. Real provider calls are performed separately when end-to-end validation is needed.
 
 ## Current limitations
-
 This is a small integration service, not a multi-tenant production platform.
 
-Current limitations are explicit:
-
+Current limitations:
 - SQLite is intended for the current single-instance deployment
 - Gemini credentials are not left enabled in the public deployment
 - Anthropic credentials are not enabled in the public deployment
 - the dashboard is read-only
 - there is no user authentication layer
-- there is no role or tenant system
 - Anthropic has automated integration coverage but no claimed live-provider validation
 
-These limitations are intentional and are not hidden behind broader claims.
-
----
-
 ## Main technologies
-
 - Python 3.12
 - FastAPI
-- Pydantic
-- pydantic-settings
+- Pydantic / pydantic-settings
 - httpx
-- SQLite
-- SQL
-- HTML
-- CSS
-- JavaScript
+- SQLite / SQL
+- HTML / CSS / JavaScript
 - pytest
 - Docker
 - GitHub Actions
 - Railway
 
----
-
 ## Purpose
-
 This repository is a public portfolio project focused on practical API integration, external-service reliability, observability, SQL-backed metrics, automated testing, containerization, and deployment.
 
-The goal is not to present a large platform.
-
-The goal is to keep a small system complete enough that its integration behavior can be inspected from HTTP request to external provider, persistence, metrics, CI, Docker, and live deployment.
+The goal is to keep a small system complete enough that its behavior can be inspected from incoming HTTP request to external provider, persistence, metrics, CI, Docker, and live deployment.

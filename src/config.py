@@ -2,7 +2,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    app_name: str = "API Integration Lab"
+    app_name: str = "AI API Observability"
     app_version: str = "0.5.0"
 
     log_level: str = "INFO"

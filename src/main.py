@@ -166,7 +166,8 @@ async def ai_analyze(payload: AIAnalyzeRequest):
             instruction=payload.instruction,
         )
 
-    except HTTPException as exc:
+   except HTTPException as exc:
+    if exc.status_code != 503:
         record_ai_failure(
             started_at=started_at,
             provider="anthropic",
@@ -174,7 +175,7 @@ async def ai_analyze(payload: AIAnalyzeRequest):
             status=f"http_{exc.status_code}",
         )
 
-        raise
+    raise
 
     usage = result.get("usage", {})
 

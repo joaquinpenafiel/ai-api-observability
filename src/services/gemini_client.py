@@ -17,9 +17,13 @@ async def analyze_text_with_gemini(
         logger.error("Gemini API key is not configured")
 
         raise HTTPException(
-            status_code=503,
-            detail="Gemini AI service is not configured.",
-        )
+    status_code=503,
+    detail=(
+        "Gemini provider credentials are not configured. "
+        "In the public demo they are intentionally disabled; "
+        "see README."
+    ),
+)
 
     url = (
         f"{settings.gemini_api_base.rstrip('/')}/v1beta/"

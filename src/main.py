@@ -200,13 +200,14 @@ async def gemini_analyze(payload: AIAnalyzeRequest):
             instruction=payload.instruction,
         )
 
-    except HTTPException as exc:
-        record_ai_failure(
-            started_at=started_at,
-            provider="gemini",
-            model=settings.gemini_model,
-            status=f"http_{exc.status_code}",
-        )
+        except HTTPException as exc:
+        if exc.status_code != 503:
+            record_ai_failure(
+                started_at=started_at,
+                provider="gemini",
+                model=settings.gemini_model,
+                status=f"http_{exc.status_code}",
+            )
 
         raise
 

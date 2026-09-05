@@ -85,9 +85,13 @@ def test_gemini_requires_api_key(monkeypatch):
 
     assert exc_info.value.status_code == 503
     assert (
-        exc_info.value.detail
-        == "Gemini AI service is not configured."
+    exc_info.value.detail
+    == (
+        "Gemini provider credentials are not configured. "
+        "In the public demo they are intentionally disabled; "
+        "see README."
     )
+)
 
 
 def test_gemini_rate_limit(monkeypatch):

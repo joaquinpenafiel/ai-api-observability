@@ -14,9 +14,13 @@ async def analyze_text(text: str, instruction: str):
         logger.error("Anthropic API key is not configured")
 
         raise HTTPException(
-            status_code=503,
-            detail="AI service is not configured.",
-        )
+    status_code=503,
+    detail=(
+        "Anthropic provider credentials are not configured. "
+        "In the public demo they are intentionally disabled; "
+        "see README."
+    ),
+)
 
     url = (
         f"{settings.anthropic_api_base.rstrip('/')}"

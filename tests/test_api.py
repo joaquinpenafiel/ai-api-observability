@@ -290,6 +290,53 @@ def test_gemini_failure_records_metrics(
     )
     assert rows[0]["latency_ms"] >= 0
 
+def test_gemini_disabled_provider_does_not_record_failure(
+    monkeypatch,
+    tmp_path,
+):
+    database_path = tmp_path / "disabled_gemini_metrics.db"
+
+    monkeypatch.setattr(
+        main_module.settings,
+        "database_path",
+        str(database_path),
+    )
+
+    initialize_database(database_path)
+
+    mocked_analyze = AsyncMock(
+        side_effect=HTTPException(
+            status_code=503,
+            detail=(
+                "Gemini provider credentials are not configured. "
+                "In the public demo they are intentionally disabled; "
+                "see README."
+            ),
+        )
+    )
+
+    monkeypatch.setattr(
+        main_module,
+        "analyze_text_with_gemini",
+        mocked_analyze,
+    )
+
+    response = client.post(
+        "/ai/gemini/analyze",
+        json={
+            "text": "Example input text.",
+            "instruction": "Summarize this text.",
+        },
+    )
+
+    assert response.status_code == 503
+
+    rows = fetch_ai_requests(
+        database_path=database_path,
+    )
+
+    assert rows == []
+
 def test_stats_endpoint_aggregates_ai_metrics(
     monkeypatch,
     tmp_path,

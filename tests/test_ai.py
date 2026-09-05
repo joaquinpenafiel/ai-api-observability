@@ -81,14 +81,14 @@ def test_ai_requires_api_key(monkeypatch):
         )
 
     assert exc_info.value.status_code == 503
-   assert (
-    exc_info.value.detail
-    == (
-        "Anthropic provider credentials are not configured. "
-        "In the public demo they are intentionally disabled; "
-        "see README."
+    assert (
+        exc_info.value.detail
+        == (
+            "Anthropic provider credentials are not configured. "
+            "In the public demo they are intentionally disabled; "
+            "see README."
+        )
     )
-)
 
 
 def test_ai_rate_limit(monkeypatch):

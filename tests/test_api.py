@@ -478,6 +478,50 @@ def test_stats_endpoint_aggregates_ai_metrics(
         providers["anthropic"]["average_latency_ms"]
         == 300.0
     )
+def test_stats_returns_latest_20_ai_requests(
+    monkeypatch,
+    tmp_path,
+):
+    database_path = tmp_path / "recent_metrics.db"
+
+    monkeypatch.setattr(
+        main_module.settings,
+        "database_path",
+        str(database_path),
+    )
+
+    initialize_database(database_path)
+
+    for index in range(25):
+        record_ai_request(
+            provider="gemini",
+            model="gemini-3.1-flash-lite",
+            input_tokens=10,
+            output_tokens=5,
+            total_tokens=15,
+            latency_ms=100.0,
+            status="success",
+            request_id=f"recent-{index}",
+            database_path=database_path,
+        )
+
+    response = client.get("/stats")
+
+    assert response.status_code == 200
+
+    recent_requests = response.json()["recent_requests"]
+
+    assert len(recent_requests) == 20
+
+    assert (
+        recent_requests[0]["request_id"]
+        == "recent-24"
+    )
+
+    assert (
+        recent_requests[-1]["request_id"]
+        == "recent-5"
+    )
 def test_dashboard_page_is_served():
     response = client.get("/dashboard")
 

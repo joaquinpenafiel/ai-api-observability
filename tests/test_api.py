@@ -406,6 +406,7 @@ def test_stats_endpoint_aggregates_ai_metrics(
         total_tokens=30,
         latency_ms=100.0,
         status="success",
+        estimated_cost_usd=0.00002,
         request_id="stats-1",
         database_path=database_path,
     )
@@ -418,6 +419,7 @@ def test_stats_endpoint_aggregates_ai_metrics(
         total_tokens=50,
         latency_ms=200.0,
         status="http_429",
+        estimated_cost_usd=0.0,
         request_id="stats-2",
         database_path=database_path,
     )
@@ -430,6 +432,7 @@ def test_stats_endpoint_aggregates_ai_metrics(
         total_tokens=70,
         latency_ms=300.0,
         status="success",
+        estimated_cost_usd=0.00005,
         request_id="stats-3",
         database_path=database_path,
     )
@@ -448,6 +451,8 @@ def test_stats_endpoint_aggregates_ai_metrics(
     assert data["total_output_tokens"] == 60
     assert data["total_tokens"] == 150
 
+    assert data["estimated_cost_usd"] == 0.00007
+
     assert data["average_latency_ms"] == 200.0
 
     assert len(data["providers"]) == 2
@@ -461,12 +466,14 @@ def test_stats_endpoint_aggregates_ai_metrics(
     assert providers["gemini"]["successful_requests"] == 1
     assert providers["gemini"]["failed_requests"] == 1
     assert providers["gemini"]["total_tokens"] == 80
+    assert providers["gemini"]["estimated_cost_usd"] == 0.00002
     assert providers["gemini"]["average_latency_ms"] == 150.0
 
     assert providers["anthropic"]["requests"] == 1
     assert providers["anthropic"]["successful_requests"] == 1
     assert providers["anthropic"]["failed_requests"] == 0
     assert providers["anthropic"]["total_tokens"] == 70
+    assert providers["anthropic"]["estimated_cost_usd"] == 0.00005
     assert (
         providers["anthropic"]["average_latency_ms"]
         == 300.0

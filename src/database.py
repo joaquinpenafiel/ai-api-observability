@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS ai_request_metrics (
     input_tokens INTEGER NOT NULL DEFAULT 0,
     output_tokens INTEGER NOT NULL DEFAULT 0,
     total_tokens INTEGER NOT NULL DEFAULT 0,
+    estimated_cost_usd REAL NOT NULL DEFAULT 0.0,
     latency_ms REAL NOT NULL,
     status TEXT NOT NULL,
     request_id TEXT
@@ -65,8 +66,24 @@ def initialize_database(
         connect_database(database_path)
     ) as connection:
         connection.executescript(SCHEMA_SQL)
-        connection.commit()
 
+        columns = {
+            row["name"]
+            for row in connection.execute(
+                "PRAGMA table_info(ai_request_metrics)"
+            ).fetchall()
+        }
+
+        if "estimated_cost_usd" not in columns:
+            connection.execute(
+                """
+                ALTER TABLE ai_request_metrics
+                ADD COLUMN estimated_cost_usd
+                REAL NOT NULL DEFAULT 0.0
+                """
+            )
+
+        connection.commit()
 
 def record_ai_request(
     *,
@@ -77,6 +94,7 @@ def record_ai_request(
     total_tokens: int,
     latency_ms: float,
     status: str,
+    estimated_cost_usd: float = 0.0,
     request_id: str | None = None,
     database_path: str | Path | None = None,
 ) -> int:
@@ -96,11 +114,12 @@ def record_ai_request(
                 input_tokens,
                 output_tokens,
                 total_tokens,
+                estimated_cost_usd,
                 latency_ms,
                 status,
                 request_id
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 created_at,
@@ -109,6 +128,7 @@ def record_ai_request(
                 input_tokens,
                 output_tokens,
                 total_tokens,
+                estimated_cost_usd,
                 latency_ms,
                 status,
                 request_id,
@@ -138,6 +158,7 @@ def fetch_ai_requests(
                 input_tokens,
                 output_tokens,
                 total_tokens,
+                estimated_cost_usd,
                 latency_ms,
                 status,
                 request_id

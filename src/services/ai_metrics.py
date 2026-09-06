@@ -3,6 +3,7 @@ import time
 from src.database import record_ai_request
 from src.request_context import request_id_context
 
+from src.services.ai_costs import estimate_ai_cost_usd
 
 def start_ai_timer() -> float:
     return time.perf_counter()
@@ -29,6 +30,13 @@ def record_ai_success(
         )
     )
 
+    estimated_cost_usd = estimate_ai_cost_usd(
+        provider=provider,
+        model=model,
+        input_tokens=resolved_input_tokens,
+        output_tokens=resolved_output_tokens,
+    )
+    
     latency_ms = (
         time.perf_counter() - started_at
     ) * 1000
@@ -39,6 +47,7 @@ def record_ai_success(
         input_tokens=resolved_input_tokens,
         output_tokens=resolved_output_tokens,
         total_tokens=resolved_total_tokens,
+        estimated_cost_usd=estimated_cost_usd,
         latency_ms=round(latency_ms, 2),
         status="success",
         request_id=request_id_context.get(),

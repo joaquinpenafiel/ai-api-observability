@@ -26,6 +26,10 @@ const providerTableBody = document.getElementById(
     "provider-table-body"
 );
 
+const recentTableBody = document.getElementById(
+    "recent-table-body"
+);
+
 const dashboardStatus = document.getElementById(
     "dashboard-status"
 );
@@ -105,6 +109,43 @@ function renderProviders(providers) {
     }
 }
 
+function renderRecentRequests(requests) {
+    recentTableBody.innerHTML = "";
+
+    if (requests.length === 0) {
+        const row = document.createElement("tr");
+
+        row.innerHTML = `
+            <td colspan="7">
+                No recent AI requests recorded yet.
+            </td>
+        `;
+
+        recentTableBody.appendChild(row);
+
+        return;
+    }
+
+    for (const request of requests) {
+        const row = document.createElement("tr");
+
+        const timestamp = new Date(
+            request.created_at
+        ).toLocaleString();
+
+        row.innerHTML = `
+            <td>${timestamp}</td>
+            <td>${request.provider}</td>
+            <td>${request.model}</td>
+            <td>${request.status}</td>
+            <td>${formatNumber(request.total_tokens)}</td>
+            <td>${formatCost(request.estimated_cost_usd)}</td>
+            <td>${request.latency_ms} ms</td>
+        `;
+
+        recentTableBody.appendChild(row);
+    }
+}
 
 async function loadDashboard() {
     dashboardStatus.classList.remove("error");
@@ -125,6 +166,7 @@ async function loadDashboard() {
 
         renderSummary(data);
         renderProviders(data.providers);
+        renderRecentRequests(data.recent_requests);
 
         dashboardStatus.textContent = (
             `Updated at ${new Date().toLocaleTimeString()}`

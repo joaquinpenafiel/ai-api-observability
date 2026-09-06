@@ -104,6 +104,10 @@
             margin-top: 0;
         }
 
+        .panel + .panel {
+            margin-top: 32px;
+        }
+
         table {
             width: 100%;
             border-collapse: collapse;
@@ -264,6 +268,26 @@
             >
                 Waiting for metrics...
             </div>
+        </section>
+        <section class="panel">
+            <h2>Recent Requests</h2>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Time</th>
+                        <th>Provider</th>
+                        <th>Model</th>
+                        <th>Status</th>
+                        <th>Tokens</th>
+                        <th>Estimated cost</th>
+                        <th>Latency</th>
+                    </tr>
+                </thead>
+
+                <tbody id="recent-table-body">
+                </tbody>
+            </table>
         </section>
     </main>
 

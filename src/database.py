@@ -218,6 +218,10 @@ def fetch_ai_stats(
                     0
                 ) AS total_tokens,
                 COALESCE(
+                    SUM(estimated_cost_usd),
+                    0.0
+                ) AS estimated_cost_usd,
+                COALESCE(
                     AVG(latency_ms),
                     0
                 ) AS average_latency_ms
@@ -255,6 +259,10 @@ def fetch_ai_stats(
                     0
                 ) AS total_tokens,
                 COALESCE(
+                    SUM(estimated_cost_usd),
+                    0.0
+                ) AS estimated_cost_usd,
+                COALESCE(
                     AVG(latency_ms),
                     0
                 ) AS average_latency_ms
@@ -271,6 +279,11 @@ def fetch_ai_stats(
         2,
     )
 
+    stats["estimated_cost_usd"] = round(
+        stats["estimated_cost_usd"],
+        8,
+    )
+
     stats["providers"] = []
 
     for row in provider_rows:
@@ -279,6 +292,11 @@ def fetch_ai_stats(
         provider_stats["average_latency_ms"] = round(
             provider_stats["average_latency_ms"],
             2,
+        )
+
+        provider_stats["estimated_cost_usd"] = round(
+            provider_stats["estimated_cost_usd"],
+            8,
         )
 
         stats["providers"].append(

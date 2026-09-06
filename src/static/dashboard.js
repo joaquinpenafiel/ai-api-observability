@@ -14,6 +14,10 @@ const totalTokensElement = document.getElementById(
     "total-tokens"
 );
 
+const estimatedCostElement = document.getElementById(
+    "estimated-cost"
+);
+
 const averageLatencyElement = document.getElementById(
     "average-latency"
 );
@@ -35,6 +39,10 @@ function formatNumber(value) {
     return Number(value).toLocaleString();
 }
 
+function formatCost(value) {
+    return `$${Number(value).toFixed(8)}`;
+}
+
 
 function renderSummary(data) {
     totalRequestsElement.textContent = formatNumber(
@@ -53,6 +61,10 @@ function renderSummary(data) {
         data.total_tokens
     );
 
+    estimatedCostElement.textContent = formatCost(
+        data.estimated_cost_usd
+    );
+
     averageLatencyElement.textContent = (
         `${data.average_latency_ms} ms`
     );
@@ -66,7 +78,7 @@ function renderProviders(providers) {
         const row = document.createElement("tr");
 
         row.innerHTML = `
-            <td colspan="6">
+            <td colspan="7">
                 No AI request metrics recorded yet.
             </td>
         `;
@@ -85,6 +97,7 @@ function renderProviders(providers) {
             <td>${formatNumber(provider.successful_requests)}</td>
             <td>${formatNumber(provider.failed_requests)}</td>
             <td>${formatNumber(provider.total_tokens)}</td>
+            <td>${formatCost(provider.estimated_cost_usd)}</td>
             <td>${provider.average_latency_ms} ms</td>
         `;
 

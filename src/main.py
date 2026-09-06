@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 
 from src.config import settings
 from src.database import (
+    fetch_ai_requests,
     fetch_ai_stats,
     initialize_database,
 )
@@ -139,7 +140,13 @@ def dashboard():
 
 @app.get("/stats")
 def ai_stats():
-    return fetch_ai_stats()
+    stats = fetch_ai_stats()
+
+    stats["recent_requests"] = fetch_ai_requests(
+        limit=20,
+    )
+
+    return stats
 
 @app.post("/process")
 def process_data(payload: ProcessRequest):

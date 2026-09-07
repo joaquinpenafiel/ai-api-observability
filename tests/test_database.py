@@ -90,3 +90,40 @@ def test_fetch_ai_requests_orders_latest_first_and_limits(
     assert len(rows) == 2
     assert rows[0]["request_id"] == "request-2"
     assert rows[1]["request_id"] == "request-1"
+
+def test_initialize_database_backfills_missing_costs(
+    tmp_path,
+):
+    database_path = tmp_path / "legacy_metrics.db"
+
+    initialize_database(database_path)
+
+    record_ai_request(
+        provider="gemini",
+        model="gemini-3.1-flash-lite",
+        input_tokens=51,
+        output_tokens=74,
+        total_tokens=125,
+        latency_ms=1000.0,
+        status="success",
+        estimated_cost_usd=0.0,
+        request_id="legacy-request",
+        database_path=database_path,
+    )
+
+    initialize_database(database_path)
+
+    rows = fetch_ai_requests(
+        database_path=database_path,
+    )
+
+    assert len(rows) == 1
+    assert rows[0]["estimated_cost_usd"] == 0.00012375
+
+    initialize_database(database_path)
+
+    rows = fetch_ai_requests(
+        database_path=database_path,
+    )
+
+    assert rows[0]["estimated_cost_usd"] == 0.00012375

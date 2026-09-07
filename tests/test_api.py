@@ -165,6 +165,7 @@ def test_gemini_endpoint_records_metrics(
     assert rows[0]["input_tokens"] == 25
     assert rows[0]["output_tokens"] == 10
     assert rows[0]["total_tokens"] == 35
+    assert rows[0]["estimated_cost_usd"] == 0.00002125
     assert rows[0]["status"] == "success"
     assert rows[0]["request_id"] == "metrics-test-123"
     assert rows[0]["latency_ms"] >= 0

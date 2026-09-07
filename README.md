@@ -7,7 +7,7 @@ FastAPI service for external API and AI-provider integration with retries, reque
 ## Live deployment
 
 - **Dashboard:** https://ai-api-observability-production.up.railway.app/dashboard
-- **API docs:** https://ai-api-observability-production.up.railway.app/>
+- **API docs:** https://ai-api-observability-production.up.railway.app/docs
 - **Health:** https://ai-api-observability-production.up.railway.app/health
 - **Metrics:** https://ai-api-observability-production.up.railway.app/stats
 

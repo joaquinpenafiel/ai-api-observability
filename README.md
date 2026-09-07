@@ -7,7 +7,7 @@ FastAPI service for external API and AI-provider integration with retries, reque
 ## Live deployment
 
 - **Dashboard:** https://ai-api-observability-production.up.railway.app/dashboard
-- **API docs:** https://ai-api-observability-production.up.railway.app/docs
+- **API docs:** https://ai-api-observability-production.up.railway.app/>
 - **Health:** https://ai-api-observability-production.up.railway.app/health
 - **Metrics:** https://ai-api-observability-production.up.railway.app/stats
 
@@ -21,9 +21,11 @@ Gemini was temporarily enabled in Railway for end-to-end validation.
 
 Recorded production snapshot:
 
-- 3 successful Gemini requests
+- 6 successful Gemini requests
 - 0 failed requests
-- 387 total tokens
+- 531 total tokens
+- input/output token usage captured per request
+- estimated API cost persisted and aggregated
 - real end-to-end latency measurements
 
 The temporary Gemini credential was removed after validation. Metrics remain stored in SQLite on a persistent Railway volume.
@@ -214,7 +216,7 @@ The value is persisted with the request metrics and exposed through `/stats` and
 
 Estimated cost is intended for operational observability and is **not** a replacement for provider billing records.
 
-The original three live Gemini requests predate cost telemetry. Their cost remains `0.0` rather than being reconstructed from incomplete historical data.
+The first three live Gemini requests predated the cost column, but their original input and output token counts were already persisted. Their estimated costs were therefore backfilled deterministically using the same provider/model pricing function used for subsequent requests; no token split was inferred.
 
 ## Metrics API
 
@@ -437,7 +439,7 @@ python -m pytest -q
 Current CI result:
 
 ```text
-37 passed
+38 passed
 ```
 
 The suite covers:
@@ -462,7 +464,7 @@ External APIs are mocked during CI, keeping tests deterministic and free of real
 GitHub Actions validates:
 
 ```text
-pytest -> 37 tests -> Docker build -> success
+pytest -> 38 tests -> Docker build -> success
 ```
 
 ## Project structure

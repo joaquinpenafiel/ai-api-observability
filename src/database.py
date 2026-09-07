@@ -5,6 +5,8 @@ from pathlib import Path
 
 from src.config import settings
 
+from src.services.ai_costs import estimate_ai_cost_usd
+
 
 SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS ai_request_metrics (
@@ -83,6 +85,45 @@ def initialize_database(
                 """
             )
 
+        rows_without_cost = connection.execute(
+            """
+            SELECT
+                id,
+                provider,
+                model,
+                input_tokens,
+                output_tokens
+            FROM ai_request_metrics
+            WHERE status = 'success'
+              AND estimated_cost_usd = 0.0
+              AND (
+                  input_tokens > 0
+                  OR output_tokens > 0
+              )
+            """
+        ).fetchall()
+
+        for row in rows_without_cost:
+            estimated_cost_usd = estimate_ai_cost_usd(
+                provider=row["provider"],
+                model=row["model"],
+                input_tokens=row["input_tokens"],
+                output_tokens=row["output_tokens"],
+            )
+
+            if estimated_cost_usd > 0:
+                connection.execute(
+                    """
+                    UPDATE ai_request_metrics
+                    SET estimated_cost_usd = ?
+                    WHERE id = ?
+                    """,
+                    (
+                        estimated_cost_usd,
+                        row["id"],
+                    ),
+                )
+        
         connection.commit()
 
 def record_ai_request(

@@ -44,9 +44,18 @@ function formatNumber(value) {
 }
 
 function formatCost(value) {
-    return `$${Number(value).toFixed(8)}`;
-}
+    const cost = Number(value);
 
+    if (cost === 0) {
+        return "$0.0000";
+    }
+
+    if (cost < 0.0001) {
+        return "<$0.0001";
+    }
+
+    return `$${cost.toFixed(4)}`;
+}
 
 function renderSummary(data) {
     totalRequestsElement.textContent = formatNumber(

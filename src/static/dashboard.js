@@ -57,6 +57,16 @@ function formatCost(value) {
     return `$${cost.toFixed(4)}`;
 }
 
+function formatTimestamp(value) {
+    return (
+        new Date(value)
+            .toISOString()
+            .slice(0, 19)
+            .replace("T", " ")
+        + " UTC"
+    );
+}
+
 function renderSummary(data) {
     totalRequestsElement.textContent = formatNumber(
         data.total_requests
@@ -138,10 +148,10 @@ function renderRecentRequests(requests) {
     for (const request of requests) {
         const row = document.createElement("tr");
 
-        const timestamp = new Date(
-            request.created_at
-        ).toLocaleString();
-
+        const timestamp = formatTimestamp(
+    request.created_at
+);
+        
         row.innerHTML = `
             <td>${timestamp}</td>
             <td>${request.provider}</td>

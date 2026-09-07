@@ -188,8 +188,8 @@ async function loadDashboard() {
         renderRecentRequests(data.recent_requests);
 
         dashboardStatus.textContent = (
-            `Updated at ${new Date().toLocaleTimeString()}`
-        );
+    `Updated at ${formatTimestamp(new Date())}`
+);
 
     } catch (error) {
         console.error(

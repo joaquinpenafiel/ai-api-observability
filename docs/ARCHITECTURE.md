@@ -2,27 +2,6 @@
 
 This document explains the main architectural decisions behind AI API Observability, the trade-offs accepted for the current scope, the known failure boundaries, and how the system would evolve if its requirements changed.
 
-## 1. Context and Constraints
-
-## 2. SQLite vs PostgreSQL
-
-## 3. Direct HTTP vs Provider SDKs
-
-## 4. HMAC-SHA256 Webhook Verification
-
-## 5. Failure Modes
-
-## 6. What Breaks First Under Load?
-
-## 7. Evolution Toward Multi-Tenancy
-
-## 8. What I Deliberately Did Not Build
-
-
-# Architecture & Engineering Decisions
-
-This document explains the main architectural decisions behind AI API Observability, the trade-offs accepted for the current scope, the known failure boundaries, and how the system would evolve if its requirements changed.
-
 The goal is not to present the current architecture as universally scalable. The goal is to make clear why each component exists, what assumptions make it appropriate today, and which changes would invalidate those assumptions.
 
 ---

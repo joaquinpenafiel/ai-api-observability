@@ -15,6 +15,12 @@ The public deployment is intentionally read-only for provider-backed execution.
 
 AI provider credentials are not left enabled for anonymous usage, and interactive request execution is disabled in the public Swagger UI.
 
+## Engineering documentation
+
+For architectural trade-offs, scaling boundaries, failure modes, security limitations, and possible evolution paths, see:
+
+- [Architecture & Engineering Decisions](docs/ARCHITECTURE.md)
+
 ### Live validation
 
 Gemini was temporarily enabled in Railway for end-to-end validation.

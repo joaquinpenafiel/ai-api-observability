@@ -530,7 +530,7 @@ This is a portfolio-scale integration and observability service, not a multi-ten
 - There is no user authentication layer.
 - Anthropic has mocked integration coverage but no claimed live-provider validation.
 - Estimated costs are approximate.
-- Historical rows created before cost telemetry are not backfilled.
+- Historical successful rows can be cost-backfilled only when their original input/output token counts are already persisted and the pricing table can produce a valid estimate.
 
 ## Main technologies
 

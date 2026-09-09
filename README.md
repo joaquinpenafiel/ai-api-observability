@@ -4,6 +4,12 @@
 
 FastAPI service for external API and AI-provider integration with retries, request tracing, signed webhooks, SQL-backed observability, estimated API costs, a JavaScript dashboard, Docker, CI, and Railway deployment.
 
+## Engineering documentation
+
+For architectural trade-offs, scaling boundaries, failure modes, security limitations, and possible evolution paths, see:
+
+- [Architecture & Engineering Decisions](docs/ARCHITECTURE.md)
+
 ## Live deployment
 
 - **Dashboard:** https://ai-api-observability-production.up.railway.app/dashboard
@@ -14,12 +20,6 @@ FastAPI service for external API and AI-provider integration with retries, reque
 The public deployment is intentionally read-only for provider-backed execution.
 
 AI provider credentials are not left enabled for anonymous usage, and interactive request execution is disabled in the public Swagger UI.
-
-## Engineering documentation
-
-For architectural trade-offs, scaling boundaries, failure modes, security limitations, and possible evolution paths, see:
-
-- [Architecture & Engineering Decisions](docs/ARCHITECTURE.md)
 
 ### Live validation
 

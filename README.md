@@ -473,6 +473,9 @@ GitHub Actions validates:
 pytest -> 38 tests -> Docker build -> success
 ```
 
+## Project structure
+
+```text
 .
 ├── .github/
 │   └── workflows/

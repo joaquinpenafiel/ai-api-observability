@@ -473,13 +473,14 @@ GitHub Actions validates:
 pytest -> 38 tests -> Docker build -> success
 ```
 
-## Project structure
-
-```text
 .
 ├── .github/
 │   └── workflows/
 │       └── tests.yml
+├── docs/
+│   └── ARCHITECTURE.md
+├── scripts/
+│   └── load_probe.py
 ├── src/
 │   ├── main.py
 │   ├── config.py

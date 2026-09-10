@@ -258,56 +258,166 @@ If credentials are intentionally absent, the endpoint returns 503 but the event 
 
 ## 6. What Breaks First Under Load?
 
-This section currently describes engineering hypotheses, not benchmark results.
+The initial architectural hypothesis was that SQLite write concurrency could become a scaling boundary, but this needed to be separated from HTTP-server and application-level effects.
 
-No claim is made yet about a measured maximum throughput.
+A small local probe was therefore created to measure the system in two layers:
 
-Several pressure points are visible from the current architecture.
+1. HTTP behavior through FastAPI/Uvicorn.
+2. Direct concurrent writes through the same SQLite persistence function used by AI telemetry.
 
-### SQLite write concurrency
+No external AI-provider requests were used during these tests.
 
-Every AI telemetry event produces a database write and commit.
+### Test environment
 
-At sufficiently high concurrency, serialized writes to the SQLite database file are an expected scaling boundary.
+The measurements were collected locally with:
 
-### Per-request external HTTP clients
+- Windows
+- Python 3.10.6
+- a single Uvicorn process
+- 200 operations per concurrency level
+- concurrency levels: 1, 5, 10, 20 and 40
+- temporary isolated SQLite databases for the write-contention probe
 
-Provider integrations currently create an `httpx.AsyncClient` within the request operation.
+These results describe this implementation and this environment. They are not presented as universal SQLite performance limits.
 
-This keeps lifecycle management simple, but sustained high request volume would benefit from a longer-lived shared client and connection pooling strategy.
+### HTTP baseline
 
-### Synchronous telemetry writes
+The HTTP probe exercised two endpoints:
 
-Telemetry persistence uses synchronous SQLite operations.
+```text
+POST /process
+GET /stats
+```
 
-At the current scale this keeps the implementation straightforward. Under heavier asynchronous workloads, persistence could move behind an asynchronous queue or worker so provider-response latency is not coupled to telemetry storage.
+`/process` does not write telemetry to SQLite, while `/stats` reads aggregated SQLite metrics.
 
-### External providers
+Across 200 requests per concurrency level, both endpoints completed with zero errors.
 
-Even if the application itself scaled perfectly, upstream quotas, latency and rate limits remain independent constraints.
+However, latency increased significantly as concurrency increased.
 
-Scaling the local service cannot eliminate provider-side capacity limits.
+Representative results:
 
-### Next step: measurement
+| Concurrency | `/process` RPS | `/process` p95 | `/stats` RPS | `/stats` p95 |
+| ---: | ---: | ---: | ---: | ---: |
+| 1 | 83.71 | 13.12 ms | 73.29 | 14.56 ms |
+| 5 | 78.77 | 96.06 ms | 80.95 | 81.14 ms |
+| 10 | 54.33 | 346.33 ms | 60.37 | 251.36 ms |
+| 20 | 42.11 | 1188.98 ms | 43.97 | 930.32 ms |
+| 40 | 35.58 | 2632.18 ms | 41.64 | 2592.32 ms |
 
-Before replacing any component purely for expected scale, I would run controlled load tests and record:
+Because `/process` showed substantial latency degradation without using SQLite persistence, the HTTP experiment does not support attributing all high-concurrency degradation to SQLite.
 
-- requests per second
-- p50 latency
-- p95 latency
-- p99 latency
-- error rate
-- database-lock/contention behavior
-- CPU usage
-- memory usage
+This suggests that server/process scheduling, the local runtime, request handling or the probe itself may contribute before the persistence layer becomes relevant.
 
-Only then should the first actual bottleneck be claimed.
+### SQLite write-contention probe
 
-The principle is:
+The second probe removed HTTP, FastAPI routing and Uvicorn from the path.
 
-> predict bottlenecks from architecture, but identify them through measurement.
+It called the same `record_ai_request()` persistence function directly from concurrent worker threads against an isolated temporary SQLite database.
 
----
+The experiment was repeated multiple times and produced the same qualitative pattern:
+
+- no lock errors at concurrency 1
+- lock errors beginning at low concurrency
+- increasing error rate as concurrency increased
+- rapidly increasing tail latency
+- little improvement in successful-write throughput
+
+The final verification run produced:
+
+| Concurrency | Successful writes | Lock errors | Error rate | Successful writes/s | p95 | p99 |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 | 200 | 0 | 0.0% | 6.19 | 244.69 ms | 307.67 ms |
+| 5 | 189 | 11 | 5.5% | 5.74 | 1391.92 ms | 5277.31 ms |
+| 10 | 179 | 21 | 10.5% | 6.21 | 3711.08 ms | 9017.42 ms |
+| 20 | 164 | 36 | 18.0% | 7.05 | 5521.34 ms | 7285.20 ms |
+| 40 | 145 | 55 | 27.5% | 6.42 | 8727.59 ms | 11748.00 ms |
+
+The important observation is not a universal throughput number.
+
+It is the shape of the response.
+
+Increasing concurrency from 1 to 40 did not materially increase successful-write throughput, which remained roughly in the same range, while lock errors and tail latency increased sharply.
+
+Conceptually:
+
+```text
+more concurrent writers
+        |
+        v
+write contention
+        |
+        +------> waiting / higher tail latency
+        |
+        +------> database lock errors
+        |
+        v
+little additional useful throughput
+```
+
+### Interpretation
+
+The measurements support the original architectural concern that the current SQLite write pattern has a measurable concurrency boundary.
+
+Specifically, the current implementation opens a connection and commits each telemetry write independently.
+
+Under concurrent direct writes, this pattern produces contention rather than proportional throughput growth.
+
+This does not mean:
+
+> SQLite can only handle approximately 6-7 writes per second.
+
+That conclusion would be unsupported.
+
+Different hardware, filesystem behavior, SQLite configuration, transaction batching, WAL mode, connection strategies and workload shapes could produce substantially different results.
+
+The supported conclusion is narrower:
+
+> In the measured local environment, the current per-write connection/commit pattern develops lock errors and severe tail-latency growth under concurrent writes, while successful-write throughput remains approximately flat.
+
+### Architectural consequence
+
+For the current portfolio-scale, low-volume, single-instance deployment, SQLite remains appropriate.
+
+The benchmark does not justify replacing it today.
+
+It does, however, provide a concrete migration signal.
+
+If the application required sustained concurrent telemetry writes, background workers, multiple replicas or multi-tenant workloads, I would first evaluate:
+
+- PostgreSQL
+- longer-lived database connections
+- batched or queued telemetry writes
+- asynchronous persistence
+- connection pooling
+- workload-specific load testing
+
+The decision to migrate should therefore be driven by measured workload requirements rather than technology preference.
+
+### Remaining bottlenecks
+
+SQLite is not the only possible scaling boundary.
+
+The HTTP baseline showed substantial latency growth even on `/process`, which does not perform telemetry writes.
+
+Additional investigation would be required before making claims about the first end-to-end bottleneck of the complete service.
+
+Other possible pressure points include:
+
+- single-process Uvicorn execution
+- local Windows/Python scheduling behavior
+- synchronous work inside request handling
+- per-request creation of external `httpx.AsyncClient` instances
+- external provider quotas and latency
+
+The current evidence therefore separates two conclusions:
+
+1. the full HTTP service degrades under higher local concurrency without producing errors in this test;
+2. the current SQLite write pattern independently exhibits measurable lock contention under concurrent writes.
+
+The principle remains:
+
+> predict bottlenecks from architecture, isolate them experimentally, and claim only what the measurements support.
 
 ## 7. Evolution Toward Multi-Tenancy
 

@@ -294,7 +294,23 @@ def run_sqlite_round(
         if "locked" in error.lower()
     )
 
-    rps = total_requests / elapsed if elapsed > 0 else 0.0
+    attempt_rps = (
+        total_requests / elapsed
+        if elapsed > 0
+        else 0.0
+    )
+
+    success_rps = (
+        len(latencies) / elapsed
+        if elapsed > 0
+        else 0.0
+    )
+
+    error_rate = (
+        (len(errors) / total_requests) * 100
+        if total_requests > 0
+        else 0.0
+    )
 
     print(
         f"sqlite     "
@@ -303,7 +319,9 @@ def run_sqlite_round(
         f"ok={len(latencies):<4} "
         f"err={len(errors):<3} "
         f"locks={lock_errors:<3} "
-        f"rps={rps:>8.2f} "
+        f"attempt_rps={attempt_rps:>8.2f} "
+        f"success_rps={success_rps:>8.2f} "
+        f"error_rate={error_rate:>6.2f}% "
         f"p50={percentile(latencies, 0.50):>8.2f}ms "
         f"p95={percentile(latencies, 0.95):>8.2f}ms "
         f"p99={percentile(latencies, 0.99):>8.2f}ms"

@@ -382,6 +382,117 @@ A follow-up experiment should therefore test the persistence pattern before conc
 
 The goal of that experiment would be to distinguish a database-engine limitation from an implementation-level write-path limitation.
 
+### Follow-up experiment: WAL and connection lifecycle
+
+The unexpectedly high single-writer baseline suggested that the measured limit might not be an intrinsic SQLite throughput ceiling.
+
+A controlled 2x2 experiment was therefore run with four variants:
+
+| Variant | Journal mode | Connection lifecycle |
+| --- | --- | --- |
+| `delete_per_write` | DELETE | new connection per write |
+| `wal_per_write` | WAL | new connection per write |
+| `delete_persistent` | DELETE | persistent connection |
+| `wal_persistent` | WAL | persistent connection |
+
+Each variant kept one commit per write. Transaction batching, asynchronous persistence and changes to SQLite `synchronous` settings were intentionally excluded so that the experiment isolated journal mode and connection lifecycle.
+
+The probe is available at:
+
+[`scripts/sqlite_wal_probe.py`](../scripts/sqlite_wal_probe.py)
+
+Command used:
+
+```bash
+python scripts/sqlite_wal_probe.py --requests 200 --repeats 5
+```
+
+Median results across five repeated runs:
+
+| Variant | Successful writes/s | p50 | p95 | p99 | Errors |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| DELETE + connection per write | 6.56 | 143.11 ms | 220.10 ms | 324.30 ms | 0 |
+| WAL + connection per write | 6.30 | 153.87 ms | 206.13 ms | 274.69 ms | 0 |
+| DELETE + persistent connection | 6.93 | 138.12 ms | 209.16 ms | 274.33 ms | 0 |
+| WAL + persistent connection | 24.38 | 40.26 ms | 59.39 ms | 93.02 ms | 0 |
+
+Neither WAL mode alone nor connection reuse alone materially changed the single-writer baseline.
+
+The substantial improvement appeared only when WAL mode and a persistent connection were combined.
+
+In the measured environment, that combination increased median successful-write throughput by approximately 3.7x relative to the current per-write DELETE-journal pattern while reducing median and tail latency substantially.
+
+This experiment does not prove which lower-level filesystem or SQLite mechanism causes the interaction.
+
+It does show that the original baseline was strongly influenced by the application's persistence configuration rather than demonstrating an intrinsic SQLite throughput ceiling.
+
+### Follow-up experiment: concurrent writers
+
+The next question was whether the single-writer improvement would survive concurrent writes or merely make the baseline faster.
+
+A second probe compared:
+
+1. the current implementation pattern:
+   - DELETE journal mode
+   - connection opened and closed per write
+   - one commit per write
+
+2. the best-performing experimental pattern:
+   - WAL journal mode
+   - one persistent SQLite connection per worker
+   - one commit per write
+
+The probe is available at:
+
+[`scripts/sqlite_concurrency_probe.py`](../scripts/sqlite_concurrency_probe.py)
+
+Command used:
+
+```bash
+python scripts/sqlite_concurrency_probe.py --requests 200 --repeats 5 --levels 1,5,10,20,40
+```
+
+Median results across five repeated runs:
+
+| Concurrency | Current successful writes/s | WAL + persistent successful writes/s | Current error rate | WAL + persistent error rate | Current lock errors | WAL + persistent lock errors |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 | 6.61 | 27.52 | 0.0% | 0.0% | 0 | 0 |
+| 5 | 6.59 | 27.51 | 5.0% | 2.0% | 10 | 4 |
+| 10 | 7.32 | 27.33 | 10.0% | 4.5% | 20 | 9 |
+| 20 | 6.74 | 24.79 | 23.0% | 9.0% | 46 | 18 |
+| 40 | 7.07 | 31.29 | 34.0% | 17.5% | 68 | 35 |
+
+Across the measured concurrency range, the WAL + persistent-connection pattern delivered approximately 3.7x to 4.4x more successful-write throughput than the current implementation.
+
+The improvement was accompanied by lower lock counts, lower error rates and substantially lower latency.
+
+For example, at concurrency 40:
+
+| Metric | Current | WAL + persistent |
+| --- | ---: | ---: |
+| Successful writes/s | 7.07 | 31.29 |
+| Error rate | 34.0% | 17.5% |
+| Lock errors | 68 | 35 |
+| p50 latency | 613.07 ms | 28.10 ms |
+| p95 latency | 5717.48 ms | 1075.52 ms |
+| p99 latency | 7889.53 ms | 4545.37 ms |
+
+The optimization therefore moves the measured concurrency boundary substantially.
+
+It does not remove it.
+
+At concurrency 40, the optimized pattern still produced a 17.5% median error rate, 35 median lock errors and multi-second tail latency.
+
+The supported conclusion is therefore:
+
+> In the measured local environment, WAL mode combined with worker-local persistent SQLite connections substantially improves useful throughput and reduces contention compared with the current per-write connection pattern, but significant contention remains at higher concurrency.
+
+This changes the architectural interpretation.
+
+The original measurements did not reveal a fixed SQLite throughput ceiling. They revealed a write path whose configuration imposed a much lower practical boundary.
+
+The appropriate engineering response is therefore to optimize and re-measure the persistence pattern before replacing the database engine.
+
 The important observation is not a universal throughput number.
 
 It is the shape of the response.
@@ -406,42 +517,76 @@ little additional useful throughput
 
 ### Interpretation
 
-The measurements support the original architectural concern that the current SQLite write pattern has a measurable concurrency boundary.
+The experiments changed the architectural interpretation of the original result.
 
-Specifically, the current implementation opens a connection and commits each telemetry write independently.
+The first contention probe correctly showed that the current persistence implementation has a measurable concurrency boundary:
 
-Under concurrent direct writes, this pattern produces contention rather than proportional throughput growth.
+- successful-write throughput remained approximately flat
+- lock errors increased with concurrency
+- tail latency increased sharply
+
+However, the unexpectedly expensive single-writer baseline showed that writer contention alone could not explain the behavior.
+
+The follow-up 2x2 experiment then separated two implementation choices:
+
+- SQLite journal mode
+- connection lifecycle
+
+Neither WAL mode alone nor connection reuse alone materially improved the measured single-writer baseline.
+
+The substantial improvement appeared when WAL mode and persistent connections were combined.
+
+The subsequent concurrency experiment showed that this improvement survived concurrent writes.
+
+Across concurrency levels 1 through 40, the WAL + persistent-connection pattern delivered approximately 3.7x to 4.4x more successful-write throughput than the current implementation while also reducing lock errors, error rates and latency.
 
 This does not mean:
 
-> SQLite can only handle approximately 6-7 writes per second.
+> WAL makes SQLite horizontally scalable or eliminates write contention.
 
 That conclusion would be unsupported.
 
-Different hardware, filesystem behavior, SQLite configuration, transaction batching, WAL mode, connection strategies and workload shapes could produce substantially different results.
+At concurrency 40, the experimental pattern still showed a 17.5% median error rate, 35 median lock errors and multi-second tail latency.
 
 The supported conclusion is narrower:
 
-> In the measured local environment, the current per-write connection/commit pattern develops lock errors and severe tail-latency growth under concurrent writes, while successful-write throughput remains approximately flat.
+> In the measured local environment, a substantial part of the original write-performance boundary came from the application's persistence configuration rather than from a fixed SQLite throughput ceiling. WAL mode combined with worker-local persistent connections moved that boundary substantially, but did not remove contention at higher concurrency.
+
+The experiments also do not identify the exact lower-level mechanism responsible for the interaction between WAL mode and persistent connections.
+
+Filesystem behavior, journaling behavior, synchronization costs, connection lifecycle and other SQLite/runtime effects may contribute.
+
+The result therefore supports an implementation-level optimization hypothesis without claiming a universal SQLite performance characteristic.
 
 ### Architectural consequence
 
 For the current portfolio-scale, low-volume, single-instance deployment, SQLite remains appropriate.
 
-The benchmark does not justify replacing it today.
+The experiments do not justify replacing it with PostgreSQL today.
 
-It does, however, provide a concrete migration signal.
+They do, however, change the order in which I would respond to higher write demand.
 
-If the application required sustained concurrent telemetry writes, background workers, multiple replicas or multi-tenant workloads, I would first evaluate:
+Before migrating the database engine, I would first evaluate the measured improvement experimentally demonstrated here:
 
-- PostgreSQL
-- longer-lived database connections
-- batched or queued telemetry writes
-- asynchronous persistence
-- connection pooling
-- workload-specific load testing
+- WAL journal mode
+- longer-lived or worker-local SQLite connections
+- the same one-commit-per-write semantics
+- workload-specific load testing after integration
 
-The decision to migrate should therefore be driven by measured workload requirements rather than technology preference.
+This optimization has not been applied to the deployed application. It was tested in isolated experimental probes so that the existing production behavior and the experimental result remain clearly separated.
+
+If requirements expanded to include sustained concurrent telemetry writes, the optimized SQLite pattern would therefore be a reasonable next implementation step to validate inside the application.
+
+PostgreSQL would still become the stronger architectural choice if requirements included:
+
+- multiple application replicas
+- independent background workers
+- multi-tenant workloads
+- stronger replication or backup requirements
+- substantially higher sustained write concurrency
+- database-level operational guarantees beyond the intended SQLite deployment model
+
+The migration decision should therefore be driven by measured requirements and by whether the optimized single-instance persistence model continues to satisfy them.
 
 ### Remaining bottlenecks
 
@@ -461,8 +606,11 @@ Other possible pressure points include:
 
 The current evidence therefore separates two conclusions:
 
-1. the full HTTP service degrades under higher local concurrency without producing errors in this test;
-2. the current SQLite write pattern independently exhibits measurable lock contention under concurrent writes.
+The current evidence therefore separates three conclusions:
+
+1. the full HTTP service degrades under higher local concurrency without producing errors in the original HTTP test;
+2. the current SQLite write pattern independently exhibits measurable lock contention under concurrent writes;
+3. WAL mode combined with persistent worker-local connections substantially moves that persistence boundary, but does not eliminate contention at higher concurrency.
 
 The principle remains:
 

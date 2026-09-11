@@ -351,6 +351,8 @@ The final verification run produced:
 | 20 | 164 | 36 | 18.0% | 7.05 | 5521.34 ms | 7285.20 ms |
 | 40 | 145 | 55 | 27.5% | 6.42 | 8727.59 ms | 11748.00 ms |
 
+Latency percentiles in the SQLite table are calculated over successful writes only. Failed lock attempts are counted separately in the error rate and are not included in p50/p95/p99 latency calculations.
+
 ### Baseline cost before contention
 
 One result deserves separate attention.

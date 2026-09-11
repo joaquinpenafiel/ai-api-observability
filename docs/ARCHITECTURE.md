@@ -278,6 +278,24 @@ The measurements were collected locally with:
 - concurrency levels: 1, 5, 10, 20 and 40
 - temporary isolated SQLite databases for the write-contention probe
 
+The deployed Docker runtime and CI use Python 3.12. The measurements below were produced by the local Python 3.10.6 environment and should therefore be interpreted as local benchmark results rather than deployed-runtime performance measurements.
+
+The reproducible probe is available at:
+
+[`scripts/load_probe.py`](../scripts/load_probe.py)
+
+SQLite write-contention probe:
+
+```bash
+python scripts/load_probe.py sqlite --requests 200 --levels 1,5,10,20,40
+```
+
+HTTP probe, with the application already running locally:
+
+```bash
+python scripts/load_probe.py http --requests 200 --levels 1,5,10,20,40
+```
+
 These results describe this implementation and this environment. They are not presented as universal SQLite performance limits.
 
 ### HTTP baseline
@@ -332,6 +350,35 @@ The final verification run produced:
 | 10 | 179 | 21 | 10.5% | 6.21 | 3711.08 ms | 9017.42 ms |
 | 20 | 164 | 36 | 18.0% | 7.05 | 5521.34 ms | 7285.20 ms |
 | 40 | 145 | 55 | 27.5% | 6.42 | 8727.59 ms | 11748.00 ms |
+
+### Baseline cost before contention
+
+One result deserves separate attention.
+
+At concurrency 1, all 200 writes succeeded with zero lock errors, yet successful throughput was only 6.19 writes per second and p95 latency was 244.69 ms.
+
+Because there is only one active writer at this level, this baseline cost cannot be explained by writer contention alone.
+
+The current persistence path opens a new SQLite connection and commits every telemetry write independently. That connection/transaction lifecycle is therefore a candidate contributor to the observed baseline cost.
+
+Other possible contributors include:
+
+- Windows filesystem behavior
+- storage characteristics
+- SQLite journal and synchronous settings
+- connection setup/teardown overhead
+- local Python/runtime behavior
+
+The current experiment does not isolate which of these factors dominates.
+
+A follow-up experiment should therefore test the persistence pattern before concluding that SQLite itself is the primary limitation. In particular, useful controlled comparisons include:
+
+- the current connection/commit pattern
+- WAL mode
+- longer-lived connections
+- WAL combined with longer-lived connections
+
+The goal of that experiment would be to distinguish a database-engine limitation from an implementation-level write-path limitation.
 
 The important observation is not a universal throughput number.
 

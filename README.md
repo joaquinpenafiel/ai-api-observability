@@ -483,10 +483,9 @@ pytest -> 38 tests -> Docker build -> success
 ├── docs/
 │   └── ARCHITECTURE.md
 ├── scripts/
-│   scripts/
-├── load_probe.py
-├── sqlite_wal_probe.py
-└── sqlite_concurrency_probe.py
+│   ├── load_probe.py
+│   ├── sqlite_wal_probe.py
+│   └── sqlite_concurrency_probe.py
 ├── src/
 │   ├── main.py
 │   ├── config.py

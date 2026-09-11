@@ -493,28 +493,6 @@ The original measurements did not reveal a fixed SQLite throughput ceiling. They
 
 The appropriate engineering response is therefore to optimize and re-measure the persistence pattern before replacing the database engine.
 
-The important observation is not a universal throughput number.
-
-It is the shape of the response.
-
-Increasing concurrency from 1 to 40 did not materially increase successful-write throughput, which remained roughly in the same range, while lock errors and tail latency increased sharply.
-
-Conceptually:
-
-```text
-more concurrent writers
-        |
-        v
-write contention
-        |
-        +------> waiting / higher tail latency
-        |
-        +------> database lock errors
-        |
-        v
-little additional useful throughput
-```
-
 ### Interpretation
 
 The experiments changed the architectural interpretation of the original result.
@@ -603,8 +581,6 @@ Other possible pressure points include:
 - synchronous work inside request handling
 - per-request creation of external `httpx.AsyncClient` instances
 - external provider quotas and latency
-
-The current evidence therefore separates two conclusions:
 
 The current evidence therefore separates three conclusions:
 
